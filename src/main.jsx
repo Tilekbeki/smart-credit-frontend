@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
 import heroArt from '../assets/alpha-cat-hero.png';
+import { createApplication, getApplication, evaluateApplication, acceptApplication, disburseApplication } from './api';
 import './styles.css';
 
 const scrollToSection = (id, block = 'start') => {
@@ -13,6 +14,8 @@ const scrollToSection = (id, block = 'start') => {
 const formatRubles = (value) => new Intl.NumberFormat('ru-RU').format(Number(value));
 const TEST_PHONE = '+7 900 000-00-00';
 const TEST_CODE = '1221';
+const SAVED_APPLICATION_KEY = 'smart-credit-current-application';
+const pause = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
 const companyProfiles = [
   { id: 'shop', name: 'ИП «Лавка у дома»', detail: 'Торговля', contact: 'Алия Соколова', role: 'Владелец бизнеса', icon: '↺', goal: 'stock' },
   { id: 'workshop', name: 'ООО «Мастерская Север»', detail: 'Производство', contact: 'Михаил Орлов', role: 'Генеральный директор', icon: '↗', goal: 'equipment' },
@@ -31,6 +34,11 @@ const products = {
   turnover: { name: 'Кредит на оборотные средства', shortName: 'Оборотные средства', reason: 'Для закупок, регулярных расходов и покрытия временного разрыва в обороте.', icon: '↺' },
   investment: { name: 'Инвестиционный кредит', shortName: 'Инвестиционный кредит', reason: 'Для приобретения оборудования и обновления производственных возможностей.', icon: '↗' },
 };
+
+function ApplicationEvents({ events }) {
+  if (!events?.length) return null;
+  return <div className="application-events"><strong>Путь заявки</strong><ol>{events.map((event, index) => <li key={`${event.status}-${index}`}><span>{event.title}</span><time dateTime={event.at}>{new Date(event.at).toLocaleString('ru-RU')}</time></li>)}</ol></div>;
+}
 
 function App() {
   const [goal, setGoal] = useState('stock');
@@ -51,6 +59,41 @@ function App() {
   const [contactRole, setContactRole] = useState('');
   const [contactError, setContactError] = useState('');
   const [applicationSummary, setApplicationSummary] = useState(null);
+  const [application, setApplication] = useState(null);
+  const [serviceError, setServiceError] = useState('');
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(Boolean(window.localStorage.getItem(SAVED_APPLICATION_KEY)));
+  const [restoreError, setRestoreError] = useState('');
+
+  useEffect(() => {
+    const savedId = window.localStorage.getItem(SAVED_APPLICATION_KEY);
+    if (!savedId) return undefined;
+    let active = true;
+    getApplication(savedId).then((saved) => {
+      if (!active) return;
+      const profile = companyProfiles.find((item) => item.id === saved.profile_id);
+      if (!profile) throw new Error('Профиль заявки не найден.');
+      const selectedGoal = financingGoals.find((item) => item.id === saved.goal_id);
+      setSelectedProfile(profile);
+      setGoal(saved.goal_id);
+      setOtherGoal(saved.goal_description || '');
+      setAmount(String(saved.amount));
+      setTerm(String(saved.term_months));
+      setProductChoice(saved.product_id);
+      setContactName(saved.contact_name);
+      setContactRole(saved.contact_role);
+      setResult({ goal: saved.goal_id, goalLabel: saved.goal_id === 'other' ? saved.goal_description : selectedGoal?.title, amount: saved.amount, term: saved.term_months });
+      setApplicationSummary({ company: profile.name, contactName: saved.contact_name, contactRole: saved.contact_role, goal: saved.goal_id === 'other' ? saved.goal_description : selectedGoal?.title, product: products[saved.product_id]?.name, amount: saved.amount, term: saved.term_months });
+      setApplication(saved);
+      setAuthStage('ready');
+      setFlowStage(saved.status === 'funded' ? 'funded' : saved.status === 'signed' ? 'signed' : ['approved', 'counter_offer', 'rejected'].includes(saved.status) ? 'decision' : 'submitted');
+    }).catch((failure) => {
+      if (!active) return;
+      if (failure.status === 404) window.localStorage.removeItem(SAVED_APPLICATION_KEY);
+      else setRestoreError(failure.message);
+    }).finally(() => { if (active) setRestoreLoading(false); });
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     const items = document.querySelectorAll('[data-reveal]');
@@ -85,6 +128,13 @@ function App() {
       window.clearTimeout(midpoint);
       window.clearTimeout(complete);
     };
+  }, [flowStage]);
+
+  useEffect(() => {
+    if (!['submitting', 'evaluating', 'signing', 'disbursing'].includes(flowStage)) return undefined;
+    setProgressStep(0);
+    const midpoint = window.setTimeout(() => setProgressStep(1), 650);
+    return () => window.clearTimeout(midpoint);
   }, [flowStage]);
 
   const showRecommendation = (event) => {
@@ -139,12 +189,16 @@ function App() {
   };
 
   const chooseProfile = (profile) => {
+    window.localStorage.removeItem(SAVED_APPLICATION_KEY);
     setSelectedProfile(profile);
     setGoal(profile.goal);
     setContactName(profile.contact);
     setContactRole(profile.role);
     setContactError('');
     setApplicationSummary(null);
+    setApplication(null);
+    setServiceError('');
+    setAcceptedTerms(false);
     setProductChoice(null);
     setFlowStage('selection');
     setResult(null);
@@ -154,6 +208,7 @@ function App() {
   };
 
   const exitDemo = () => {
+    window.localStorage.removeItem(SAVED_APPLICATION_KEY);
     setSelectedProfile(null);
     setPhone(TEST_PHONE);
     setSmsCode('');
@@ -161,6 +216,9 @@ function App() {
     setContactRole('');
     setContactError('');
     setApplicationSummary(null);
+    setApplication(null);
+    setServiceError('');
+    setAcceptedTerms(false);
     setProductChoice(null);
     setFlowStage('selection');
     setResult(null);
@@ -170,7 +228,7 @@ function App() {
 
   const selectedGoal = financingGoals.find((item) => item.id === goal);
   const chosenProduct = productChoice ? products[productChoice] : null;
-  const currentFlowIndex = ['selection', 'calculating'].includes(flowStage) ? 0 : flowStage === 'result' ? 1 : ['contact', 'preparing'].includes(flowStage) ? 2 : 3;
+  const currentFlowIndex = ['selection', 'calculating'].includes(flowStage) ? 0 : flowStage === 'result' ? 1 : ['contact', 'preparing'].includes(flowStage) ? 2 : ['draft', 'submitting', 'submitted', 'evaluating'].includes(flowStage) ? 3 : flowStage === 'decision' ? 4 : 5;
 
   const prepareApplication = (event) => {
     event.preventDefault();
@@ -187,6 +245,99 @@ function App() {
     setApplicationSummary({ contactName: normalizedName, contactRole: contactRole.trim(), company: selectedProfile.name, goal: result.goalLabel, product: chosenProduct.name, amount: result.amount, term: result.term });
     setFlowStage('preparing');
     focusStage('flow-stage-title');
+  };
+
+  const finishEvaluation = async (id) => {
+    setServiceError('');
+    setFlowStage('evaluating');
+    focusStage('flow-stage-title');
+    try {
+      const [evaluated] = await Promise.all([evaluateApplication(id), pause(1400)]);
+      setApplication(evaluated);
+      setFlowStage('decision');
+      focusStage('flow-stage-title');
+    } catch (failure) {
+      setServiceError(failure.message);
+      setFlowStage('submitted');
+      focusStage('flow-stage-title');
+    }
+  };
+
+  const submitApplication = async () => {
+    setServiceError('');
+    setFlowStage('submitting');
+    focusStage('flow-stage-title');
+    try {
+      const submitted = await createApplication({
+        profile_id: selectedProfile.id,
+        goal_id: result.goal,
+        goal_description: result.goal === 'other' ? result.goalLabel : '',
+        product_id: productChoice,
+        amount: result.amount,
+        term_months: result.term,
+        contact_name: applicationSummary.contactName,
+        contact_role: applicationSummary.contactRole,
+      });
+      setApplication(submitted);
+      window.localStorage.setItem(SAVED_APPLICATION_KEY, submitted.id);
+      await finishEvaluation(submitted.id);
+    } catch (failure) {
+      setServiceError(failure.message);
+      setFlowStage('draft');
+      focusStage('flow-stage-title');
+    }
+  };
+
+  const signAndReceive = async () => {
+    if (!acceptedTerms) {
+      setServiceError('Подтвердите согласие с учебными условиями.');
+      return;
+    }
+    setServiceError('');
+    setFlowStage('signing');
+    focusStage('flow-stage-title');
+    let signedSuccessfully = false;
+    try {
+      const signed = await acceptApplication(application.id);
+      signedSuccessfully = true;
+      setApplication(signed);
+      setFlowStage('disbursing');
+      const [funded] = await Promise.all([disburseApplication(application.id), pause(1200)]);
+      setApplication(funded);
+      setFlowStage('funded');
+      focusStage('flow-stage-title');
+    } catch (failure) {
+      setServiceError(failure.message);
+      setFlowStage(signedSuccessfully ? 'signed' : 'decision');
+      focusStage('flow-stage-title');
+    }
+  };
+
+  const retryDisbursement = async () => {
+    setServiceError('');
+    setFlowStage('disbursing');
+    focusStage('flow-stage-title');
+    try {
+      const funded = await disburseApplication(application.id);
+      setApplication(funded);
+      setFlowStage('funded');
+      focusStage('flow-stage-title');
+    } catch (failure) {
+      setServiceError(failure.message);
+      setFlowStage('signed');
+      focusStage('flow-stage-title');
+    }
+  };
+
+  const startNewApplication = () => {
+    window.localStorage.removeItem(SAVED_APPLICATION_KEY);
+    setApplication(null);
+    setApplicationSummary(null);
+    setAcceptedTerms(false);
+    setServiceError('');
+    setResult(null);
+    setFlowStage('selection');
+    focusStage('finder-stage-title');
   };
 
   return (
@@ -215,14 +366,14 @@ function App() {
             <div className="hero-copy">
               <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Концепт для Альфа-Будущее Хакатона</span>
               <h1 id="hero-title">Деньги нужны бизнесу.<br /><em>Ясность</em> — вам.</h1>
-              <p className="hero-lede">Понятный путь от выбора кредитного продукта до статуса заявки. Без банковского лабиринта и догадок о следующем шаге.</p>
+              <p className="hero-lede">От задачи бизнеса до решения, подтверждения условий и зачисления средств — весь путь в одном кабинете.</p>
               <div className="hero-actions">
                 <Button view="primary" onClick={() => scrollToSection('demo')} className="cta-large">
                   Начать подбор <span aria-hidden="true">↗</span>
                 </Button>
                 <a className="text-link light-link" href="#how">Как это работает <span aria-hidden="true">↓</span></a>
               </div>
-              <p className="hero-note">Прототип для хакатона. Реальные заявки не отправляются.</p>
+              <p className="hero-note">Учебный прототип: заявка, решение, подтверждение условий и зачисление работают только с вымышленными данными.</p>
             </div>
             <div className="hero-visual" aria-label="Иллюстрация концепта с красным котом и голубым телефоном">
               <div className="hero-orbit orbit-one" aria-hidden="true" />
@@ -276,12 +427,12 @@ function App() {
           <div className="container approach-grid">
             <div className="approach-copy" data-reveal>
               <span className="eyebrow eyebrow-light">02 / Вместо неопределённости</span>
-              <h2 id="approach-title">Один маршрут.<br /><span>Три понятных шага.</span></h2>
-              <p>Так мы задумали полноценный кабинет: сначала понятный выбор, затем заявка и прозрачный статус на каждом этапе.</p>
+              <h2 id="approach-title">Один маршрут.<br /><span>До результата.</span></h2>
+              <p>Выберите цель, отправьте заявку и получите автоматическое решение. После подтверждения условий средства поступят на тестовый счёт.</p>
               <ol className="step-list">
                 <li><span>01</span><div><strong>Опишите задачу</strong><small>Выберите цель, сумму и срок.</small></div></li>
                 <li><span>02</span><div><strong>Сравните варианты</strong><small>Посмотрите предварительный подбор двух продуктов.</small></div></li>
-                <li><span>03</span><div><strong>Проверьте данные</strong><small>Уточните контактное лицо и соберите черновик заявки.</small></div></li>
+                <li><span>03</span><div><strong>Дойдите до зачисления</strong><small>Отправьте заявку, посмотрите решение и подтвердите условия.</small></div></li>
               </ol>
               <Button view="secondary" colors="inverted" onClick={() => scrollToSection('demo')}>Начать подбор <span aria-hidden="true">↗</span></Button>
             </div>
@@ -309,12 +460,12 @@ function App() {
               <article className="product-card turnover-card" data-reveal>
                 <div className="product-top"><span>01 / На каждый день</span><span className="product-glyph">↺</span></div>
                 <div><h3>Оборотные<br />средства</h3><p>Закупка товаров, материалов и текущие расходы бизнеса.</p></div>
-                <button className="product-link" type="button" onClick={() => { setGoal('stock'); setResult(null); setError(''); setFlowStage('selection'); scrollToSection('demo'); }}>Подобрать вариант <span aria-hidden="true">↗</span></button>
+                <button className="product-link" type="button" onClick={() => { startNewApplication(); setGoal('stock'); scrollToSection('demo'); }}>Подобрать вариант <span aria-hidden="true">↗</span></button>
               </article>
               <article className="product-card equipment-card" data-reveal>
                 <div className="product-top"><span>02 / На развитие</span><span className="product-glyph">↗</span></div>
                 <div><h3>Инвестиционный<br />кредит</h3><p>Покупка оборудования для следующего этапа роста.</p></div>
-                <button className="product-link" type="button" onClick={() => { setGoal('equipment'); setResult(null); setError(''); setFlowStage('selection'); scrollToSection('demo'); }}>Подобрать вариант <span aria-hidden="true">↗</span></button>
+                <button className="product-link" type="button" onClick={() => { startNewApplication(); setGoal('equipment'); scrollToSection('demo'); }}>Подобрать вариант <span aria-hidden="true">↗</span></button>
               </article>
             </div>
             <p className="fine-print">Подбор типа продукта не означает одобрение кредита и не является индивидуальным предложением.</p>
@@ -326,16 +477,16 @@ function App() {
             <div data-reveal>
               <span className="eyebrow">04 / Видно, что дальше</span>
               <h2 id="clarity-title">Заявка не пропадает<br />в <span className="marker">чёрном ящике.</span></h2>
-              <p>Идея кабинета — показывать текущий этап обработки, его смысл и то, требуется ли действие предпринимателя.</p>
+              <p>Кабинет показывает этап обработки, автоматическое решение, условия и запись о зачислении на тестовый счёт.</p>
               <ul className="check-list"><li>Понятные статусы без внутренних терминов</li><li>Результат и условия в одном месте</li><li>Объяснение дальнейших действий</li></ul>
             </div>
             <div className="status-panel" data-reveal>
               <div className="status-panel-head"><span>ПРИМЕР ЭКРАНА ЗАЯВКИ</span><span className="status-dot">● Статус</span></div>
-              <strong className="status-title">На рассмотрении</strong>
-              <p>Система проверяет данные компании и финансовые показатели.</p>
-              <div className="status-track"><span className="done" /><span className="done" /><span className="active" /><span /></div>
-              <div className="status-labels"><span>Черновик</span><span>Отправлена</span><span>Проверка</span><span>Результат</span></div>
-              <div className="next-step"><span>Что дальше</span><strong>Пока ничего делать не нужно</strong></div>
+              <strong className="status-title">Средства зачислены</strong>
+              <p>Решение принято автоматически, условия подтверждены, запись о зачислении сохранена.</p>
+              <div className="status-track"><span className="done" /><span className="done" /><span className="done" /><span className="active" /></div>
+              <div className="status-labels"><span>Заявка</span><span>Решение</span><span>Условия</span><span>Средства</span></div>
+              <div className="next-step"><span>Результат</span><strong>Квитанция доступна в кабинете</strong></div>
             </div>
           </div>
         </section>
@@ -345,10 +496,14 @@ function App() {
             <div className="demo-intro" data-reveal>
               <span className="eyebrow eyebrow-light">05 / Попробуйте сами</span>
               <h2 id="demo-title">Начните с цели.<br /><em>Остальное — яснее.</em></h2>
-              <p>Выберите компанию, опишите задачу, проверьте предварительный вариант и соберите черновик заявки.</p>
-              <div className="demo-annotation"><span>✳</span><p>Данные и расчёт учебные: сообщения и заявки в банк не отправляются.</p></div>
+              <p>Выберите компанию, опишите задачу и пройдите весь путь до зачисления средств на тестовый счёт.</p>
+              <div className="demo-annotation"><span>✳</span><p>Вымышленные компании, учебный скоринг и тестовый счёт. Реальных денег и банковского договора нет.</p></div>
             </div>
-            {authStage !== 'ready' ? (
+            {restoreLoading ? (
+              <div className="loading-panel" role="status" aria-live="polite"><div className="loading-orb" aria-hidden="true" /><h3>Возвращаемся к вашей заявке</h3><p>Загружаем сохранённый статус с сервера.</p></div>
+            ) : restoreError ? (
+              <div className="auth-card"><h3 className="auth-stage-title">Не удалось загрузить заявку</h3><p className="auth-description">{restoreError} Номер заявки сохранён в браузере.</p><div className="result-actions"><Button view="primary" type="button" onClick={() => window.location.reload()} className="auth-submit">Повторить</Button><button className="auth-back" type="button" onClick={() => { window.localStorage.removeItem(SAVED_APPLICATION_KEY); setRestoreError(''); }}>Начать заново</button></div></div>
+            ) : authStage !== 'ready' ? (
               <div className="auth-card">
                 <div className="auth-head"><span>ВХОД В КАБИНЕТ</span><span>{authStage === 'phone' ? '01 / 03' : authStage === 'code' ? '02 / 03' : '03 / 03'}</span></div>
                 <h3 className="auth-stage-title" id="auth-stage-title" tabIndex={-1}>
@@ -393,15 +548,13 @@ function App() {
                   </div>
                 )}
               </div>
-            ) : ['calculating', 'preparing'].includes(flowStage) ? (
+            ) : ['calculating', 'preparing', 'submitting', 'evaluating', 'signing', 'disbursing'].includes(flowStage) ? (
               <div className="loading-panel" role="status" aria-live="polite">
                 <div className="loading-orb" aria-hidden="true" />
-                <h3 id="flow-stage-title" tabIndex={-1}>{flowStage === 'calculating' ? 'Подбираем вариант' : 'Готовим черновик'}</h3>
-                <p>{flowStage === 'calculating' ? 'Сопоставляем вашу задачу с двумя типами финансирования.' : 'Проверяем полноту введённых данных и собираем сводку заявки.'}</p>
+                <h3 id="flow-stage-title" tabIndex={-1}>{({ calculating: 'Подбираем вариант', preparing: 'Готовим черновик', submitting: 'Отправляем заявку', evaluating: 'Принимаем решение', signing: 'Подтверждаем условия', disbursing: 'Зачисляем средства' })[flowStage]}</h3>
+                <p>{({ calculating: 'Сопоставляем вашу задачу с двумя типами финансирования.', preparing: 'Проверяем полноту введённых данных и собираем сводку заявки.', submitting: 'Сохраняем заявку и присваиваем ей номер.', evaluating: 'Учебная модель оценивает финансовую нагрузку и формирует результат.', signing: 'Сохраняем подтверждение учебных условий.', disbursing: 'Записываем зачисление на тестовый счёт и готовим квитанцию.' })[flowStage]}</p>
                 <ol className="loading-steps">
-                  {(flowStage === 'calculating'
-                    ? ['Сверяем цель финансирования', 'Проверяем сумму и срок']
-                    : ['Проверяем контактные данные', 'Формируем сводку заявки']).map((step, index) => (
+                  {(({ calculating: ['Сверяем цель финансирования', 'Проверяем сумму и срок'], preparing: ['Проверяем контактные данные', 'Формируем сводку заявки'], submitting: ['Сохраняем данные заявки', 'Назначаем номер'], evaluating: ['Проверяем профиль компании', 'Рассчитываем допустимую нагрузку'], signing: ['Фиксируем согласие', 'Готовим выдачу'], disbursing: ['Зачисляем на тестовый счёт', 'Создаём квитанцию'] })[flowStage]).map((step, index) => (
                     <li className={`loading-step ${index < progressStep ? 'done' : index === progressStep ? 'active' : ''}`} key={step}>{step}</li>
                   ))}
                 </ol>
@@ -409,8 +562,8 @@ function App() {
             ) : (
               <div className="finder">
                 <div className="finder-head"><span>КРЕДИТНЫЙ ПУТЬ</span><div className="finder-account"><span className="finder-profile">{selectedProfile.name}</span><button className="finder-exit" type="button" onClick={exitDemo}>Выйти</button></div></div>
-                <div className="flow-progress" aria-label={`Этап ${currentFlowIndex + 1} из 4`}>
-                  {['Задача', 'Вариант', 'Контакт', 'Черновик'].map((label, index) => <span key={label} className={index < currentFlowIndex ? 'done' : index === currentFlowIndex ? 'active' : ''}>{label}</span>)}
+                <div className="flow-progress" aria-label={`Этап ${currentFlowIndex + 1} из 6`}>
+                  {['Задача', 'Вариант', 'Контакт', 'Заявка', 'Решение', 'Средства'].map((label, index) => <span key={label} className={index < currentFlowIndex ? 'done' : index === currentFlowIndex ? 'active' : ''}>{label}</span>)}
                 </div>
                 {flowStage === 'selection' && (
                   <form onSubmit={showRecommendation}>
@@ -429,7 +582,7 @@ function App() {
                       <Input label="Сумма, ₽" type="number" min="1" value={amount} onChange={(_, data) => { setAmount(data?.value ?? ''); setResult(null); setError(''); }} />
                       <Input label="Срок, мес." type="number" min="1" value={term} onChange={(_, data) => { setTerm(data?.value ?? ''); setResult(null); setError(''); }} />
                     </div>
-                    <p className="field-note">Сумма и срок попадут в черновик заявки. Предварительный подбор зависит от цели; ставки и одобрение здесь не рассчитываются.</p>
+                    <p className="field-note">На этом шаге цель помогает подобрать тип продукта. Решение и учебные условия появятся после отправки заявки.</p>
                     {error && <p className="form-error" role="alert">{error}</p>}
                     <Button view="primary" type="submit" block className="finder-submit">Подобрать вариант <span aria-hidden="true">↗</span></Button>
                   </form>
@@ -473,9 +626,54 @@ function App() {
                 {flowStage === 'draft' && applicationSummary && (
                   <div>
                     <h3 className="flow-title" id="flow-stage-title" tabIndex={-1}>Черновик заявки готов</h3>
-                    <p className="flow-copy">Проверьте собранные данные. Они остаются в этой вкладке и не передаются в банк.</p>
+                    <p className="flow-copy">Проверьте данные и отправьте заявку. Она сохранится в учебном сервисе, после чего система автоматически примет решение.</p>
                     <div className="draft-panel" role="status"><p><strong>Компания:</strong> {applicationSummary.company}</p><p><strong>Контакт:</strong> {applicationSummary.contactName}, {applicationSummary.contactRole}</p><p><strong>Задача:</strong> {applicationSummary.goal}</p><p><strong>Продукт:</strong> {applicationSummary.product}</p><p><strong>Сумма и срок:</strong> {formatRubles(applicationSummary.amount)} ₽ · {applicationSummary.term} мес.</p></div>
-                    <div className="result-actions"><Button view="primary" type="button" onClick={() => { setFlowStage('contact'); focusStage('flow-stage-title'); }}>Изменить данные</Button><button className="auth-back" type="button" onClick={() => { setFlowStage('selection'); setResult(null); focusStage('finder-stage-title'); }}>Новый подбор</button></div>
+                    {serviceError && <p className="form-error" role="alert">{serviceError}</p>}
+                    <div className="result-actions"><Button view="primary" type="button" onClick={submitApplication}>Отправить заявку <span aria-hidden="true">↗</span></Button><button className="auth-back" type="button" onClick={() => { setFlowStage('contact'); focusStage('flow-stage-title'); }}>Изменить данные</button></div>
+                    <p className="field-note">Отправка работает только внутри учебного проекта. Заявка не поступает в банк.</p>
+                  </div>
+                )}
+                {flowStage === 'submitted' && application && (
+                  <div>
+                    <span className="application-kicker">Заявка № {application.id.slice(0, 8)}</span>
+                    <h3 className="flow-title" id="flow-stage-title" tabIndex={-1}>Заявка отправлена</h3>
+                    <p className="flow-copy">Данные сохранены. Автоматическая проверка оценит финансовую нагрузку по вымышленному профилю.</p>
+                    {serviceError && <p className="form-error" role="alert">{serviceError}</p>}
+                    <Button view="primary" type="button" onClick={() => finishEvaluation(application.id)} className="finder-submit">Продолжить проверку <span aria-hidden="true">↗</span></Button>
+                  </div>
+                )}
+                {flowStage === 'decision' && application && (
+                  <div>
+                    <span className="application-kicker">Заявка № {application.id.slice(0, 8)} · решение системы</span>
+                    <h3 className="flow-title" id="flow-stage-title" tabIndex={-1}>{application.status === 'rejected' ? 'Сейчас кредит недоступен' : application.status === 'counter_offer' ? 'Есть другой вариант' : 'Кредит одобрен'}</h3>
+                    <p className="flow-copy">{application.status === 'rejected' ? 'Учебная модель не нашла допустимую сумму при выбранных параметрах.' : application.status === 'counter_offer' ? 'Учебная модель предлагает меньшую сумму. Вы можете принять её без ожидания сотрудника.' : 'Учебная модель проверила нагрузку и сформировала условия автоматически.'}</p>
+                    {application.reasons?.length > 0 && <div className="decision-reasons"><strong>Почему такой результат</strong><ul>{application.reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul></div>}
+                    {application.offer && <div className="offer-card"><div className="offer-card-head"><span>Учебные условия</span><strong>{application.status === 'counter_offer' ? 'Изменённая сумма' : 'Одобрено'}</strong></div><div className="offer-amount">{formatRubles(application.offer.amount)} ₽</div><div className="offer-grid"><div><span>Срок</span><strong>{application.offer.term_months} мес.</strong></div><div><span>Ставка модели</span><strong>{application.offer.annual_rate_percent}% годовых</strong></div><div><span>Платёж в месяц</span><strong>{formatRubles(application.offer.monthly_payment)} ₽</strong></div><div><span>Всего выплат</span><strong>{formatRubles(application.offer.total_payment)} ₽</strong></div></div><p>Иллюстративные условия для вымышленной компании. Не являются предложением банка.</p></div>}
+                    {application.offer && <label className="terms-consent"><input type="checkbox" checked={acceptedTerms} onChange={(event) => { setAcceptedTerms(event.target.checked); setServiceError(''); }} /><span>Я подтверждаю учебные условия и хочу зачислить сумму на тестовый счёт.</span></label>}
+                    {serviceError && <p className="form-error" role="alert">{serviceError}</p>}
+                    {application.offer ? <Button view="primary" type="button" onClick={signAndReceive} block className="finder-submit">Подтвердить и получить средства <span aria-hidden="true">↗</span></Button> : <Button view="primary" type="button" onClick={startNewApplication} block className="finder-submit">Подать новую заявку <span aria-hidden="true">↗</span></Button>}
+                    <ApplicationEvents events={application.events} />
+                  </div>
+                )}
+                {flowStage === 'signed' && application && (
+                  <div>
+                    <span className="application-kicker">Заявка № {application.id.slice(0, 8)}</span>
+                    <h3 className="flow-title" id="flow-stage-title" tabIndex={-1}>Условия подтверждены</h3>
+                    <p className="flow-copy">Подтверждение сохранено. Осталось зачислить {formatRubles(application.offer?.amount)} ₽ на тестовый счёт.</p>
+                    {serviceError && <p className="form-error" role="alert">{serviceError}</p>}
+                    <Button view="primary" type="button" onClick={retryDisbursement} block className="finder-submit">Зачислить средства <span aria-hidden="true">↗</span></Button>
+                    <ApplicationEvents events={application.events} />
+                  </div>
+                )}
+                {flowStage === 'funded' && application?.receipt && (
+                  <div>
+                    <span className="application-kicker">Заявка № {application.id.slice(0, 8)} · путь завершён</span>
+                    <h3 className="flow-title" id="flow-stage-title" tabIndex={-1}>Средства зачислены</h3>
+                    <p className="flow-copy">Вы прошли весь путь самостоятельно: заявка, автоматическое решение, подтверждение условий и зачисление.</p>
+                    <div className="receipt-card" role="status"><div className="receipt-symbol" aria-hidden="true">✓</div><span>Квитанция о тестовом зачислении</span><strong>{formatRubles(application.receipt.amount)} ₽</strong><dl><div><dt>Счёт</dt><dd>{application.receipt.account_masked}</dd></div><div><dt>Операция</dt><dd>{application.receipt.transaction_id}</dd></div><div><dt>Дата</dt><dd>{new Date(application.receipt.credited_at).toLocaleString('ru-RU')}</dd></div></dl></div>
+                    <p className="field-note">Это учебная запись. Реальных денег, банковского договора и перевода не было.</p>
+                    <ApplicationEvents events={application.events} />
+                    <Button view="primary" type="button" onClick={startNewApplication} block className="finder-submit">Новая заявка <span aria-hidden="true">↗</span></Button>
                   </div>
                 )}
               </div>
@@ -487,9 +685,9 @@ function App() {
           <div className="container faq-grid">
             <div data-reveal><span className="eyebrow">06 / Без мелкого шрифта</span><h2 id="faq-title">Важное —<br /><span className="marker">сразу понятно.</span></h2></div>
             <div className="faq-list" data-reveal>
-              <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Пока нет. Это прототип для хакатона на вымышленных данных. Реальные заявки и выдача кредита не выполняются.</p></details>
-              <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор сопоставляет цель с одним из двух типов финансирования. Скоринг и кредитное решение на этой странице не выполняются.</p></details>
-              <details><summary>Зачем нужны ФИО и роль?<span aria-hidden="true">+</span></summary><p>Это данные контактного лица для черновика заявки. Они подставлены из готового профиля и доступны для изменения.</p></details>
+              <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Это учебный прототип для хакатона. Заявки сохраняются внутри проекта, решения и зачисления создаются для вымышленных компаний; реальных банковских операций нет.</p></details>
+              <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор лишь предлагает тип продукта. После отправки заявки отдельная учебная модель автоматически оценивает финансовую нагрузку и показывает решение.</p></details>
+              <details><summary>Зачем нужны ФИО и роль?<span aria-hidden="true">+</span></summary><p>Это данные контактного лица в заявке. Они подставлены из готового профиля и доступны для изменения.</p></details>
               <details><summary>Почему кредитных продуктов два?<span aria-hidden="true">+</span></summary><p>В первом релизе показаны оборотные средства и инвестиционный кредит. Задач финансирования больше; при выборе «Другая задача» продукт можно указать вручную.</p></details>
             </div>
           </div>
