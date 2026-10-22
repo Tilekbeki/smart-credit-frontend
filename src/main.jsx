@@ -11,6 +11,12 @@ const scrollToSection = (id, block = 'start') => {
 };
 
 const formatRubles = (value) => new Intl.NumberFormat('ru-RU').format(Number(value));
+const DEMO_PHONE = '+7 900 000-00-00';
+const DEMO_CODE = '1221';
+const demoProfiles = [
+  { id: 'shop', name: 'ИП «Лавка у дома»', detail: 'Торговля · синтетический профиль', icon: '↺', goal: 'turnover' },
+  { id: 'workshop', name: 'ООО «Мастерская Север»', detail: 'Производство · синтетический профиль', icon: '↗', goal: 'equipment' },
+];
 
 function App() {
   const [goal, setGoal] = useState('turnover');
@@ -18,6 +24,11 @@ function App() {
   const [term, setTerm] = useState('12');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [authStage, setAuthStage] = useState('phone');
+  const [phone, setPhone] = useState(DEMO_PHONE);
+  const [smsCode, setSmsCode] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [selectedProfile, setSelectedProfile] = useState(null);
 
   useEffect(() => {
     const items = document.querySelectorAll('[data-reveal]');
@@ -49,6 +60,54 @@ function App() {
     setError('');
     setResult({ goal, amount: requestedAmount, term: months });
     window.requestAnimationFrame(() => scrollToSection('demo-result', 'nearest'));
+  };
+
+  const focusStage = (id = 'auth-stage-title') => {
+    window.requestAnimationFrame(() => document.getElementById(id)?.focus());
+  };
+
+  const goToAuthStage = (stage) => {
+    setAuthStage(stage);
+    setAuthError('');
+    focusStage();
+  };
+
+  const requestDemoCode = (event) => {
+    event.preventDefault();
+    const digits = phone.replace(/\D/g, '');
+    if (!((digits.length === 11 && ['7', '8'].includes(digits[0])) || digits.length === 10)) {
+      setAuthError('Укажите российский номер из 10 или 11 цифр. Можно оставить демо-номер.');
+      return;
+    }
+    setSmsCode('');
+    goToAuthStage('code');
+  };
+
+  const verifyDemoCode = (event) => {
+    event.preventDefault();
+    if (smsCode !== DEMO_CODE) {
+      setAuthError('Неверный демо-код. Для входа используйте 1221.');
+      return;
+    }
+    goToAuthStage('profile');
+  };
+
+  const chooseProfile = (profile) => {
+    setSelectedProfile(profile);
+    setGoal(profile.goal);
+    setResult(null);
+    setError('');
+    setAuthStage('ready');
+    focusStage('finder-stage-title');
+  };
+
+  const exitDemo = () => {
+    setSelectedProfile(null);
+    setPhone(DEMO_PHONE);
+    setSmsCode('');
+    setResult(null);
+    setError('');
+    goToAuthStage('phone');
   };
 
   const chosenProduct = result?.goal === 'equipment'
@@ -211,12 +270,59 @@ function App() {
             <div className="demo-intro" data-reveal>
               <span className="eyebrow eyebrow-light">05 / Попробуйте сами</span>
               <h2 id="demo-title">Начните с цели.<br /><em>Остальное — яснее.</em></h2>
-              <p>Пройдите короткий демо-подбор. Он показывает логику интерфейса на примере двух продуктов.</p>
-              <div className="demo-annotation"><span>✳</span><p>Это прототип: он не проверяет вашу кредитоспособность, не рассчитывает ставку и не создаёт заявку в банке.</p></div>
+              <p>Войдите в демо, выберите синтетическую компанию и пройдите короткий подбор из двух кредитных продуктов.</p>
+              <div className="demo-annotation"><span>✳</span><p>Это прототип: СМС не отправляется, номер не сохраняется, кредитоспособность не проверяется и заявка в банке не создаётся.</p></div>
             </div>
-            <form className="finder" onSubmit={showRecommendation} data-reveal>
-              <div className="finder-head"><span>ДЕМО-ПОДБОР</span><span>1 минута</span></div>
-              <fieldset className="goal-fieldset"><legend>Для чего нужны средства?</legend>
+            {authStage !== 'ready' ? (
+              <div className="auth-card">
+                <div className="auth-head"><span>ДЕМО-ВХОД</span><span>{authStage === 'phone' ? '01 / 03' : authStage === 'code' ? '02 / 03' : '03 / 03'}</span></div>
+                <h3 className="auth-stage-title" id="auth-stage-title" tabIndex={-1}>
+                  {authStage === 'phone' ? 'Выберите способ входа' : authStage === 'code' ? 'Введите демо-код' : 'Выберите компанию'}
+                </h3>
+                <p className="auth-description">
+                  {authStage === 'phone'
+                    ? 'Для быстрого просмотра выберите демо-компанию. Также можно попробовать вход по номеру с кодом 1221.'
+                    : authStage === 'code'
+                      ? 'Это локальная имитация входа: настоящий код на телефон не придёт.'
+                      : 'Оба профиля вымышленные. Выберите один, чтобы перейти к подбору кредита.'}
+                </p>
+                {authStage === 'phone' && (
+                  <form className="auth-form" onSubmit={requestDemoCode}>
+                    <button className="auth-skip" type="button" onClick={() => goToAuthStage('profile')}>Продолжить с демо-профилем <span aria-hidden="true">↗</span></button>
+                    <div className="auth-divider"><span>или войдите по номеру</span></div>
+                    <Input className="auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setAuthError(''); }} />
+                    <p className="auth-phone-hint">Синтетический номер подставлен для быстрого просмотра.</p>
+                    {authError && <p className="auth-error" role="alert">{authError}</p>}
+                    <Button view="primary" type="submit" block className="auth-submit">Получить демо-код <span aria-hidden="true">↗</span></Button>
+                    <p className="auth-privacy">СМС не отправляется. Номер остаётся только в памяти этой вкладки.</p>
+                  </form>
+                )}
+                {authStage === 'code' && (
+                  <form className="auth-form" onSubmit={verifyDemoCode}>
+                    <div className="auth-code-hint"><span>Ваш код для демо-входа: <strong>{DEMO_CODE}</strong></span><small>Никаких сообщений на телефон мы не отправляем.</small></div>
+                    <Input className="auth-input" label="Демо-код" type="text" inputMode="numeric" autoComplete="off" value={smsCode} onChange={(_, data) => { setSmsCode((data?.value ?? '').replace(/\D/g, '').slice(0, 4)); setAuthError(''); }} />
+                    {authError && <p className="auth-error" role="alert">{authError}</p>}
+                    <Button view="primary" type="submit" block className="auth-submit">Войти в демо <span aria-hidden="true">↗</span></Button>
+                    <button className="auth-back" type="button" onClick={() => goToAuthStage('phone')}>Изменить номер</button>
+                  </form>
+                )}
+                {authStage === 'profile' && (
+                  <div className="auth-profiles" role="group" aria-label="Синтетические профили компаний">
+                    {demoProfiles.map((profile) => (
+                      <button className="auth-profile" key={profile.id} type="button" onClick={() => chooseProfile(profile)}>
+                        <span className="auth-profile-icon" aria-hidden="true">{profile.icon}</span>
+                        <span className="auth-profile-copy"><strong>{profile.name}</strong><small>{profile.detail}</small></span>
+                        <span className="auth-profile-arrow" aria-hidden="true">↗</span>
+                      </button>
+                    ))}
+                    <p className="auth-privacy">Профили и их названия придуманы для демонстрации.</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+            <form className="finder" onSubmit={showRecommendation}>
+              <div className="finder-head"><span>ДЕМО-ПОДБОР</span><div className="finder-account"><span className="finder-profile">{selectedProfile.name}</span><button className="finder-exit" type="button" onClick={exitDemo}>Выйти</button></div></div>
+              <fieldset className="goal-fieldset"><legend id="finder-stage-title" tabIndex={-1}>Для чего нужны средства?</legend>
                 <label className={`goal-option ${goal === 'turnover' ? 'selected' : ''}`}><input type="radio" name="goal" value="turnover" checked={goal === 'turnover'} onChange={() => { setGoal('turnover'); setResult(null); setError(''); }} /><span className="goal-icon">↺</span><span><strong>Для текущих расходов</strong><small>Товары, материалы, оборот</small></span><span className="goal-check" aria-hidden="true">✓</span></label>
                 <label className={`goal-option ${goal === 'equipment' ? 'selected' : ''}`}><input type="radio" name="goal" value="equipment" checked={goal === 'equipment'} onChange={() => { setGoal('equipment'); setResult(null); setError(''); }} /><span className="goal-icon">↗</span><span><strong>Для покупки оборудования</strong><small>Техника и развитие</small></span><span className="goal-check" aria-hidden="true">✓</span></label>
               </fieldset>
@@ -229,6 +335,7 @@ function App() {
               <Button view="primary" type="submit" block className="finder-submit">Показать вариант <span aria-hidden="true">↗</span></Button>
               {result && <div className="finder-result" id="demo-result" role="status" aria-live="polite"><div className="result-icon">{chosenProduct.icon}</div><span>Подходящий тип для указанной цели</span><h3>{chosenProduct.name}</h3><p>{chosenProduct.reason}</p><div className="result-meta"><span>{formatRubles(result.amount)} ₽</span><span>{result.term} мес.</span></div><small>Демо-рекомендация не гарантирует одобрение или доступность условий.</small></div>}
             </form>
+            )}
           </div>
         </section>
 
@@ -238,7 +345,8 @@ function App() {
             <div className="faq-list" data-reveal>
               <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Пока нет. Это концепт и демонстрация для хакатона на синтетических данных. Реальные заявки и выдача кредита не выполняются.</p></details>
               <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Демо подбирает тип продукта по цели финансирования. Кредитное решение требует отдельной проверки и не рассчитывается на этой странице.</p></details>
-              <details><summary>Что будет в полноценном кабинете?<span aria-hidden="true">+</span></summary><p>По плану MVP — анкета, сохранение заявки, проверки на тестовых данных, скоринг, статусы и интерфейс сотрудника банка. Сейчас доступен только демонстрационный подбор.</p></details>
+              <details><summary>Как работает вход с кодом?<span aria-hidden="true">+</span></summary><p>Введите синтетический номер и код 1221, который показан на странице. СМС не отправляется и номер никуда не передаётся. Можно сразу перейти к выбору демо-профиля без кода.</p></details>
+              <details><summary>Что будет в полноценном кабинете?<span aria-hidden="true">+</span></summary><p>По плану MVP — анкета, сохранение заявки, проверки на тестовых данных, скоринг, статусы и интерфейс сотрудника банка. Сейчас доступны локальный демо-вход, выбор синтетического профиля и подбор продукта.</p></details>
             </div>
           </div>
         </section>
