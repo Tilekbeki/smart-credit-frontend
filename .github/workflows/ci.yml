@@ -1,0 +1,11 @@
+name: Frontend CI
+on:
+  push:
+  pull_request:
+jobs:
+  static-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check required entry points
+        run: test -s index.html && test -s styles.css
