@@ -17,7 +17,7 @@
   outline: 3px solid #52d5df;
   outline-offset: 3px;
 }
-.credit-cabinet button:disabled { cursor: not-allowed; opacity: .58; }
+.credit-cabinet button:disabled { cursor: not-allowed; }
 .cabinet-eyebrow {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
   margin-bottom: 29px; color: #78848b; font-size: 10px; font-weight: 800;
@@ -193,7 +193,11 @@
 .cabinet-product > button { width: 100%; min-height: 42px; margin-top: 5px; }
 .cabinet-primary-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
 .cabinet-primary-actions > button { min-height: 50px; }
-.cabinet-primary-actions span { color: #916231; font-size: 11px; }
+.credit-cabinet .cabinet-primary-button { color: #fff; background: #b3211d; }
+.credit-cabinet .cabinet-primary-button:hover { background: #951b18; }
+.credit-cabinet .cabinet-primary-button > span { color: inherit; font-size: inherit; }
+.credit-cabinet .cabinet-primary-button:disabled { color: #44515b; background: #e8ebed; }
+.cabinet-primary-actions > span { color: #916231; font-size: 11px; }
 .cabinet-documents { margin-top: 34px; padding-top: 28px; border-top: 1px solid #e1e8e9; }
 .cabinet-upload { display: grid; gap: 12px; }
 .cabinet-upload label { display: grid; gap: 7px; color: #495960; font-size: 12px; font-weight: 800; }

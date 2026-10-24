@@ -662,7 +662,7 @@ export default function CreditCabinet() {
             : accountPath(profile.bankRelationship) === 'external_account'
               ? 'Укажите обороты и приложите выписку из другого банка. Счёт в Альфе можно открыть позже.'
               : 'Изучите подбор, сохраните черновик и проверьте статус заявки.'}</p>
-          <Button view="primary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>
+          <Button className="cabinet-primary-button" view="primary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>
             {busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем кабинет…' : 'Продолжить ↗'}
           </Button>
         </article>)}
@@ -677,7 +677,7 @@ export default function CreditCabinet() {
       <p className="cabinet-lede">Продолжите работу с заявкой в личном кабинете. Здесь сохраняются черновики, документы и статусы заявок.</p>
       <form className="cabinet-phone-form" onSubmit={submitPhone}>
         <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
-        <Button view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
+        <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
       </form>
       {busy === 'profiles' && <LoadingCard title="Загружаем профили" detail="Подключаемся к сервису." />}
       {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-sample-phones"><strong>Номера для проверки</strong><p>Выберите номер, чтобы заполнить поле. Затем запросите код.</p><div className="cabinet-sample-list">
@@ -695,7 +695,7 @@ export default function CreditCabinet() {
       <form onSubmit={verifyCode} className="cabinet-code-form">
         <Input className="cabinet-auth-input" label="Код доступа" type="password" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(_, data) => { setCode(data?.value ?? ''); clearMessages(); }} />
         <ErrorNotice error={error} details={details} />
-        <Button view="primary" type="submit" disabled={Boolean(busy)}>{busy === 'otp-verify' ? 'Проверяем код…' : 'Войти в кабинет'}</Button>
+        <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy)}>{busy === 'otp-verify' ? 'Проверяем код…' : 'Войти в кабинет'}</Button>
       </form>
       {notice && <p className="cabinet-notice" role="status">{notice}</p>}
       <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button></div>
@@ -720,7 +720,7 @@ export default function CreditCabinet() {
 
     {screen === 'list' && busy !== 'opening' && <div className="cabinet-list">
       <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Новая заявка +</Button></div>
-      {draftToContinue && <div className="cabinet-resume"><div><span>МОЖНО ПРОДОЛЖИТЬ</span><strong>{draftToContinue.productName || 'Черновик кредитной заявки'}</strong><p>Сохранён {formatDate(draftToContinue.updatedAt || draftToContinue.createdAt)}. Данные останутся в этой заявке до отправки.</p></div><Button view="primary" onClick={() => chooseApplication(draftToContinue.applicationId)} disabled={Boolean(busy)}>Продолжить заявку ↗</Button></div>}
+      {draftToContinue && <div className="cabinet-resume"><div><span>МОЖНО ПРОДОЛЖИТЬ</span><strong>{draftToContinue.productName || 'Черновик кредитной заявки'}</strong><p>Сохранён {formatDate(draftToContinue.updatedAt || draftToContinue.createdAt)}. Данные останутся в этой заявке до отправки.</p></div><Button className="cabinet-primary-button" view="primary" onClick={() => chooseApplication(draftToContinue.applicationId)} disabled={Boolean(busy)}>Продолжить заявку ↗</Button></div>}
       {applications.length === 0 ? <div className="cabinet-empty"><strong>Заявок пока нет</strong><p>Начните с цели и сохраните первый черновик.</p></div> : applications.map((application) => <button key={application.applicationId} type="button" className="cabinet-application-row" onClick={() => chooseApplication(application.applicationId)} disabled={Boolean(busy)}>
         <span className="cabinet-row-icon" aria-hidden="true">↗</span>
         <span><strong>{application.productName || 'Черновик без продукта'}</strong><small>№ {shortId(application.applicationId)} · {formatDate(application.updatedAt)}</small></span>
@@ -772,7 +772,7 @@ export default function CreditCabinet() {
       {!recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} disabled={Boolean(busy)} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>{fieldError('productId') && <small className="cabinet-inline-error" role="alert">{fieldError('productId')}</small>}<small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
       {formProduct && <div className="cabinet-product-terms"><strong>Условия выбранного продукта</strong><span>Сумма: {formatRub(formProduct.minAmountRub)}–{formatRub(formProduct.maxAmountRub)}</span><span>Срок: {formProduct.minTermMonths}–{formProduct.maxTermMonths} мес.</span><span>Стаж бизнеса: от {formProduct.minBusinessAgeMonths} мес.</span></div>}
       <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? bankRelationship === 'external_account' ? 'Для проверки оборотов понадобится выписка из другого банка. Загрузить её можно после сохранения черновика.' : 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>
-      <div className="cabinet-primary-actions"><Button view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>
+      <div className="cabinet-primary-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>
 
       {selected && <SubmitChecklist checklist={checklist} />}
       {selected && nextAction && <div className="cabinet-next-action" aria-live="polite"><div><span>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div>{['complete_draft', 'upload_document', 'review_and_submit'].includes(nextAction.kind) && <Button view="secondary" onClick={scrollToNextAction}>Перейти ↗</Button>}</div>}
@@ -783,7 +783,7 @@ export default function CreditCabinet() {
         <DocumentList documents={documents} download={download} busy={busy} bankRelationship={bankRelationship} />
       </div>}
 
-      {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку ↗'}</Button></div>}
+      {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button className="cabinet-primary-button" view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку ↗'}</Button></div>}
     </div>}
 
     {screen === 'application' && selected && selected.status !== 'draft' && busy !== 'opening' && <div className="cabinet-status-view">
