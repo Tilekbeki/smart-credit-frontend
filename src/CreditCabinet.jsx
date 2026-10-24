@@ -74,8 +74,6 @@ const normalizePhone = (value) => {
   if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) return digits.slice(1);
   return null;
 };
-// This code is only for the local, synthetic company flow. It is not a secret or a production login method.
-const QUICK_ACCESS_CODE = '1221';
 const selectedLandingPurpose = () => {
   const value = new URLSearchParams(window.location.search).get('purpose');
   return GOALS.some(([id]) => id === value && id !== 'other') ? value : null;
@@ -302,6 +300,7 @@ export default function CreditCabinet() {
     try {
       const request = await api.requestOtp(profile.id);
       setChosenProfile(profile);
+      setPhone(profile.phone);
       setOtpRequest(request);
       setCode('');
       setAuthStage('code');
@@ -364,27 +363,6 @@ export default function CreditCabinet() {
     } catch (failure) {
       api.setAccessToken(null);
       throw failure;
-    }
-  };
-
-  const continueAsCompany = async (profile) => {
-    clearMessages();
-    setChosenProfile(profile);
-    setBusy('quick-sign-in');
-    try {
-      const request = await api.requestOtp(profile.id);
-      const session = await api.verifyOtp(request.otpRequestId, QUICK_ACCESS_CODE);
-      await completeSignIn(session);
-    } catch (failure) {
-      api.setAccessToken(null);
-      setError(failure?.code === 'network_error'
-        ? 'Нет связи с сервисом. Проверьте подключение и попробуйте снова.'
-        : failure?.code === 'invalid_otp'
-          ? 'Быстрый вход недоступен: проверьте настройки тестового окружения или войдите по номеру.'
-          : 'Не удалось открыть кабинет компании. Повторите попытку или войдите по номеру.');
-      setDetails([]);
-    } finally {
-      setBusy('');
     }
   };
 
@@ -803,17 +781,16 @@ export default function CreditCabinet() {
         <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
       </form>
-      {profiles.some((profile) => profile.role === 'CLIENT') && <details className="cabinet-demo-access"><summary>Доступные компании для входа</summary><p>Можно войти по номеру компании или открыть её кабинет сразу.</p><div className="cabinet-demo-list">{profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <div className="cabinet-demo-row" key={profile.id}><div><strong>{profile.companyName}</strong><small>{profile.phone}{accountPath(profile.bankRelationship) === 'external_account' ? ' · Без счёта в Альфе' : ''}</small></div><Button view="secondary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>{busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем…' : 'Открыть ↗'}</Button></div>)}</div></details>}
+      {profiles.some((profile) => profile.role === 'CLIENT') && <details className="cabinet-demo-access"><summary>Доступные компании для входа</summary><p>Выберите компанию, затем подтвердите вход кодом из SMS.</p><div className="cabinet-demo-list">{profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <div className="cabinet-demo-row" key={profile.id}><div><strong>{profile.companyName}</strong><small>{profile.phone}{accountPath(profile.bankRelationship) === 'external_account' ? ' · Без счёта в Альфе' : ''}</small></div><Button view="secondary" onClick={() => requestCode(profile)} disabled={Boolean(busy)}>Получить код</Button></div>)}</div></details>}
       {busy === 'profiles' && <LoadingCard title="Загружаем компании" detail="Подключаемся к сервису." />}
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
       <p className="cabinet-fineprint">Вход по номеру пока доступен для указанных компаний. SMS в этом сценарии не отправляется.</p>
-      {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
     </> : <>
       <h3>Подтвердите вход</h3>
-      <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
+      <p className="cabinet-lede">Введите код из SMS для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
       <form onSubmit={verifyCode} className="cabinet-code-form">
-        <Input className="cabinet-auth-input" label="Код доступа" type="password" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(_, data) => { setCode(data?.value ?? ''); clearMessages(); }} />
+        <Input className="cabinet-auth-input" label="Код из SMS" type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={code} onChange={(_, data) => { setCode((data?.value ?? '').replace(/\D/g, '').slice(0, 4)); clearMessages(); }} />
         <ErrorNotice error={error} details={details} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy)}>{busy === 'otp-verify' ? 'Проверяем код…' : 'Войти в кабинет'}</Button>
       </form>
