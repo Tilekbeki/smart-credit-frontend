@@ -4,6 +4,7 @@ import { Input } from '@alfalab/core-components/input';
 import * as api from './api';
 import { getJourneyStage, getNextAction, getSubmitChecklist } from './journey';
 import GuestChat from './GuestChat';
+import BankCabinet from './BankCabinet';
 import './cabinet.css';
 
 const GOALS = [
@@ -322,15 +323,35 @@ export default function CreditCabinet() {
       setError('Введите номер телефона в формате +7 999 000-00-00.');
       return;
     }
-    const profile = profiles.find((item) => item.role === 'CLIENT' && normalizePhone(item.phone) === normalized);
+    const profile = profiles.find((item) => ['CLIENT', 'BANK_EMPLOYEE'].includes(item.role) && normalizePhone(item.phone) === normalized);
     if (!profile) {
-      setError('Этот номер пока не подключён. Используйте номер из раздела «Доступные компании для входа».');
+      setError('Этот номер пока не подключён. Используйте номер из раздела «Доступные профили для входа».');
       return;
     }
     requestCode(profile);
   };
 
   const completeSignIn = async (session) => {
+    if (session.role === 'BANK_EMPLOYEE') {
+      api.setAccessToken(session.accessToken);
+      try {
+        const currentUser = await api.getMe();
+        if (currentUser.role !== 'BANK_EMPLOYEE') throw new api.ApiError('Не удалось подтвердить права сотрудника.');
+        setUser(currentUser);
+        setCompany(null);
+        setForm(initialForm(null));
+        setNewFormBaseline(initialForm(null));
+        guestPrefillRef.current = null;
+        setGuestProgress(null);
+        setAuthStage('ready');
+        setOtpRequest(null);
+        setCode('');
+        return;
+      } catch (failure) {
+        api.setAccessToken(null);
+        throw failure;
+      }
+    }
     if (session.role !== 'CLIENT' || !session.companyId) {
       throw new api.ApiError('Этот кабинет доступен предпринимателям.', { code: 'invalid_role' });
     }
@@ -776,19 +797,19 @@ export default function CreditCabinet() {
     <button className="cabinet-text-button cabinet-back-to-chat" type="button" onClick={() => { setAuthStage('intro'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>← Вернуться в чат</button>
     {authStage === 'phone' ? <>
       <h3>Войдите в кабинет</h3>
-      <p className="cabinet-lede">Введите номер, чтобы начать новую заявку или проверить статус уже отправленной.</p>
+      <p className="cabinet-lede">Войдите по номеру телефона. Клиенту откроются его заявки, сотруднику — рабочий кабинет банка.</p>
       <form className="cabinet-phone-form" onSubmit={submitPhone}>
         <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
       </form>
-      {profiles.some((profile) => profile.role === 'CLIENT') && <details className="cabinet-demo-access"><summary>Доступные компании для входа</summary><p>Выберите компанию, затем подтвердите вход кодом из SMS.</p><div className="cabinet-demo-list">{profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <div className="cabinet-demo-row" key={profile.id}><div><strong>{profile.companyName}</strong><small>{profile.phone}{accountPath(profile.bankRelationship) === 'external_account' ? ' · Без счёта в Альфе' : ''}</small></div><Button view="secondary" onClick={() => requestCode(profile)} disabled={Boolean(busy)}>Получить код</Button></div>)}</div></details>}
+      {profiles.length > 0 && <details className="cabinet-demo-access"><summary>Доступные профили для входа</summary><p>Выберите профиль, затем подтвердите вход кодом из SMS.</p><div className="cabinet-demo-list">{profiles.filter((profile) => ['CLIENT', 'BANK_EMPLOYEE'].includes(profile.role)).map((profile) => <div className="cabinet-demo-row" key={profile.id}><div><strong>{profile.role === 'BANK_EMPLOYEE' ? `${profile.name} · Сотрудник банка` : profile.companyName}</strong><small>{profile.phone}{accountPath(profile.bankRelationship) === 'external_account' ? ' · Без счёта в Альфе' : ''}</small></div><Button view="secondary" onClick={() => requestCode(profile)} disabled={Boolean(busy)}>Получить код</Button></div>)}</div></details>}
       {busy === 'profiles' && <LoadingCard title="Загружаем компании" detail="Подключаемся к сервису." />}
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">Вход по номеру пока доступен для указанных компаний. SMS в этом сценарии не отправляется.</p>
+      <p className="cabinet-fineprint">Вход по номеру пока доступен для указанных профилей. SMS в этом сценарии не отправляется.</p>
     </> : <>
       <h3>Подтвердите вход</h3>
-      <p className="cabinet-lede">Введите код из SMS для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
+      <p className="cabinet-lede">Введите код из SMS для <strong>{otpRequest?.maskedPhone}</strong>. {chosenProfile?.role === 'BANK_EMPLOYEE' ? 'После входа откроется рабочий кабинет сотрудника банка.' : `После входа откроется кабинет ${chosenProfile?.companyName}.`}</p>
       <form onSubmit={verifyCode} className="cabinet-code-form">
         <Input className="cabinet-auth-input" label="Код из SMS" type="password" inputMode="numeric" autoComplete="one-time-code" maxLength={4} value={code} onChange={(_, data) => { setCode((data?.value ?? '').replace(/\D/g, '').slice(0, 4)); clearMessages(); }} />
         <ErrorNotice error={error} details={details} />
@@ -799,6 +820,8 @@ export default function CreditCabinet() {
       <p className="cabinet-fineprint">Автоматическая отправка SMS пока не подключена. Используйте код тестового окружения; он действует 5 минут.</p>
     </>}
   </div>;
+
+  if (user?.role === 'BANK_EMPLOYEE') return <BankCabinet user={user} onSignOut={signOut} />;
 
   return <div className="credit-cabinet credit-cabinet-dashboard">
     <aside className="cabinet-sidebar" aria-label="Компания и разделы">

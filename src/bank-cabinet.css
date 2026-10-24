@@ -1,0 +1,62 @@
+.bank-cabinet .bank-scope-note { margin: 0; padding: 4px; color: var(--cabinet-muted); font-size: 12px; line-height: 1.6; }
+.bank-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.bank-toolbar label { display: grid; gap: 7px; color: var(--cabinet-muted); font-size: 12px; }
+.bank-toolbar select { min-height: 44px; max-width: 100%; padding: 0 36px 0 12px; border: 1px solid var(--cabinet-line); border-radius: 12px; color: var(--cabinet-ink); background: var(--cabinet-soft); font: inherit; }
+.bank-loading { color: var(--cabinet-muted); font-size: 14px; }
+.bank-application-list { display: grid; gap: 12px; }
+.bank-application-row { display: flex; justify-content: space-between; align-items: start; gap: 20px; width: 100%; padding: 21px; border: 1px solid var(--cabinet-line); border-radius: 17px; color: var(--cabinet-ink); background: #fff; text-align: left; }
+.bank-application-row:hover { background: #fafafd; border-color: #bfc0ca; }
+.bank-application-row > div { display: grid; gap: 7px; min-width: 0; }
+.bank-application-row > div:last-child { justify-items: end; flex: none; text-align: right; }
+.bank-application-row strong { font-size: 16px; line-height: 1.35; }
+.bank-application-row span:not(.cabinet-status), .bank-application-row small { color: var(--cabinet-muted); font-size: 12px; line-height: 1.4; }
+.bank-cabinet .cabinet-status.status-manual_review { color: #895318; background: #fff2dc; }
+.bank-section { padding: 26px 0; border-top: 1px solid var(--cabinet-line); }
+.bank-section h4 { margin-bottom: 18px; font-size: 23px; }
+.bank-section-heading { display: flex; align-items: start; justify-content: space-between; gap: 15px; }
+.bank-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 8px 0 0; }
+.bank-facts div { min-width: 0; }
+.bank-facts dt { margin-bottom: 6px; color: var(--cabinet-muted); font-size: 12px; }
+.bank-facts dd { margin: 0; color: var(--cabinet-ink); font-size: 15px; font-weight: 600; overflow-wrap: anywhere; }
+.bank-facts + p { margin-top: 20px; }
+.bank-checks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.bank-checks article { min-width: 0; padding: 17px; border-radius: 15px; background: var(--cabinet-soft); }
+.bank-checks span { display: block; margin-bottom: 9px; color: var(--cabinet-muted); font-size: 12px; }
+.bank-checks strong { display: block; font-size: 16px; line-height: 1.35; }
+.bank-checks p { margin: 10px 0 0; color: var(--cabinet-muted); font-size: 12px; line-height: 1.6; }
+.bank-review-reasons, .bank-audit, .bank-confirm { margin-top: 18px; padding: 19px; border-radius: 15px; background: #f5f5f8; font-size: 14px; line-height: 1.55; }
+.bank-review-reasons ul { padding-left: 20px; margin: 10px 0 0; }
+.bank-review-reasons p, .bank-audit p, .bank-confirm p { margin: 8px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.bank-audit small { display: block; margin-top: 12px; color: var(--cabinet-muted); }
+.bank-processing { padding: 16px; border-radius: 12px; color: #80551c; background: #fff3dd; font-size: 13px; line-height: 1.5; }
+.bank-document { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 10px; padding: 15px; border: 1px solid var(--cabinet-line); border-radius: 13px; }
+.bank-document > div { min-width: 0; }
+.bank-document strong, .bank-document span { display: block; overflow-wrap: anywhere; }
+.bank-document strong { font-size: 14px; }
+.bank-document span { margin-top: 5px; color: var(--cabinet-muted); font-size: 12px; }
+.bank-manual-review form { display: grid; gap: 18px; }
+.bank-manual-review fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+.bank-manual-review legend { margin-bottom: 10px; font-size: 13px; font-weight: 700; }
+.bank-decision-options { display: flex; flex-wrap: wrap; gap: 10px; }
+.bank-decision-options label { display: inline-flex; align-items: center; gap: 8px; padding: 13px 15px; border: 1px solid var(--cabinet-line); border-radius: 12px; cursor: pointer; font-size: 13px; }
+.bank-decision-options label:has(input:checked) { border-color: var(--cabinet-red); background: #fff3f1; }
+.bank-decision-options input { accent-color: var(--cabinet-red); }
+.bank-original-terms { margin: 0; font-size: 14px; line-height: 1.6; }
+.bank-manual-review .cabinet-helper { margin: -10px 0 0; }
+.bank-manual-review form > button { justify-self: start; }
+.bank-confirm { margin-top: 0; background: #edf2fc; }
+.bank-confirm > div { display: flex; align-items: center; flex-wrap: wrap; gap: 18px; margin-top: 20px; }
+@media (max-width: 1100px) { .bank-checks { grid-template-columns: 1fr; } }
+@media (max-width: 590px) {
+  .bank-toolbar { align-items: center; }
+  .bank-toolbar label { min-width: 0; }
+  .bank-toolbar select { width: 100%; padding-right: 16px; }
+  .bank-application-row { flex-direction: column; padding: 17px; }
+  .bank-application-row > div:last-child { justify-items: start; text-align: left; }
+  .bank-facts { grid-template-columns: 1fr; gap: 17px; }
+  .bank-section-heading { flex-direction: column; margin-bottom: 16px; }
+  .bank-section-heading h4 { margin: 0; }
+  .bank-cabinet .cabinet-panel-header { padding-top: 38px; }
+  .bank-document { flex-direction: column; align-items: stretch; }
+  .bank-confirm > div { align-items: stretch; flex-direction: column; }
+}

@@ -160,3 +160,18 @@ export const downloadDocument = (id, documentId) =>
 
 // Submit rejects even an empty JSON body; it also needs no Idempotency-Key.
 export const submitApplication = (id) => requestApi(`${applicationPath(id)}/submit`, { method: 'POST' });
+
+const bankApplicationPath = (id) => `/bank/applications/${pathId(id)}`;
+export function listBankApplications({ status, companyId, limit, offset } = {}) {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries({ status, companyId, limit, offset })) {
+    if (value !== undefined && value !== null && value !== '') query.set(key, String(value));
+  }
+  return requestApi(`/bank/applications${query.size ? `?${query}` : ''}`);
+}
+export const getBankApplication = (id) => requestApi(bankApplicationPath(id));
+export const getBankAssessment = (id) => requestApi(`${bankApplicationPath(id)}/assessment`);
+export const makeBankDecision = (id, input, idempotencyKey) =>
+  jsonRequest(`${bankApplicationPath(id)}/decisions`, 'POST', input, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });

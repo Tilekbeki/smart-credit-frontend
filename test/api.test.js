@@ -7,9 +7,13 @@ import {
   declineOffer,
   downloadDocument,
   getApplicationDecision,
+  getBankApplication,
+  getBankAssessment,
   getAccessToken,
   getProfiles,
   listApplications,
+  listBankApplications,
+  makeBankDecision,
   requestOtp,
   setAccessToken,
   setUnauthorizedHandler,
@@ -18,6 +22,30 @@ import {
   uploadDocument,
   verifyOtp,
 } from '../src/api.js';
+
+test('employee reads and decisions use bank routes, filters, JWT and idempotency key', async () => {
+  setAccessToken('employee-jwt');
+  const calls = [];
+  await withFetch(async (url, options) => {
+    calls.push({ url, options });
+    return Response.json({ ok: true });
+  }, async () => {
+    await listBankApplications({ status: 'manual_review', companyId: 'company-1', limit: 20, offset: 40 });
+    await getBankApplication('application-1');
+    await getBankAssessment('application-1');
+    await makeBankDecision('application-1', { version: 4, decision: 'rejected', comment: 'Основание', offer: null }, 'stable-key');
+  });
+  assert.deepEqual(calls.map(({ url }) => url), [
+    '/api/v1/bank/applications?status=manual_review&companyId=company-1&limit=20&offset=40',
+    '/api/v1/bank/applications/application-1',
+    '/api/v1/bank/applications/application-1/assessment',
+    '/api/v1/bank/applications/application-1/decisions',
+  ]);
+  assert.ok(calls.every(({ options }) => options.headers.get('Authorization') === 'Bearer employee-jwt'));
+  assert.equal(calls[3].options.method, 'POST');
+  assert.equal(calls[3].options.headers.get('Idempotency-Key'), 'stable-key');
+  assert.deepEqual(JSON.parse(calls[3].options.body), { version: 4, decision: 'rejected', comment: 'Основание', offer: null });
+});
 
 async function withFetch(handler, run) {
   const originalFetch = globalThis.fetch;
