@@ -172,14 +172,14 @@ function LandingPage() {
             <div className="preview-intro" data-reveal>
               <span className="eyebrow eyebrow-light">05 / Ваш следующий шаг</span>
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
-              <p>Попробуйте два пути: со счётом в Альфа-Банке и со счётом в другом банке. Подберите продукт, сохраните черновик и следите за заявкой.</p>
+              <p>Войдите, подберите продукт, сохраните черновик и следите за заявкой. Кабинет подскажет шаги с учётом данных вашей компании.</p>
               <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
               <div className="preview-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
             </div>
             <div className="preview-card" data-reveal aria-label="Этапы работы в кабинете">
               <div className="preview-card-top"><span>ЛИЧНЫЙ КАБИНЕТ</span><span className="preview-card-mark">а.</span></div>
               <ol>
-                <li><span>01</span><div><strong>Выберите компанию</strong><small>Откройте кабинет с данными примера.</small></div><b aria-hidden="true">↗</b></li>
+                <li><span>01</span><div><strong>Войдите в кабинет</strong><small>Подтвердите номер телефона.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>02</span><div><strong>Подберите вариант</strong><small>Укажите задачу и параметры финансирования.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Черновик, документы и история проверки.</small></div><b aria-hidden="true">↗</b></li>
               </ol>

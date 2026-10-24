@@ -28,30 +28,20 @@
 .cabinet-fineprint, .cabinet-helper { margin: 16px 0 0; color: #6d797f; font-size: 12px; line-height: 1.55; }
 .cabinet-fineprint { padding-top: 18px; border-top: 1px solid #e6e9eb; }
 .credit-cabinet-auth { max-width: 650px; }
-.cabinet-company-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; margin: 26px 0 0; }
-.cabinet-company-card { display: flex; flex-direction: column; min-width: 0; min-height: 250px; padding: 21px; border: 1px solid #dce7e9; border-radius: 17px; background: linear-gradient(150deg, #f7fbfb 0%, #fff 62%); }
-.cabinet-company-card-top { display: flex; align-items: center; gap: 9px; margin-bottom: 25px; color: #59747a; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
-.cabinet-company-number { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 9px; color: #a72d27; background: #ffece9; font-size: 11px; letter-spacing: 0; }
-.cabinet-company-card h4 { margin: 0 0 10px; font-size: clamp(19px, 2vw, 23px); overflow-wrap: anywhere; }
-.cabinet-company-card p { margin: 0 0 23px; color: #63737a; font-size: 12px; line-height: 1.5; }
-.cabinet-company-card > button { width: 100%; min-height: 45px; margin-top: auto; border-radius: 10px; }
-.cabinet-manual-entry { margin-top: 19px; }
 .cabinet-phone-form { display: grid; gap: 15px; margin: 24px 0; }
 .cabinet-auth-input { width: 100%; }
 .cabinet-phone-form > button { min-height: 50px; }
-.cabinet-sample-phones { margin-top: 28px; padding-top: 22px; border-top: 1px solid #e6e9eb; }
-.cabinet-sample-phones > strong { display: block; color: #3b4a50; font-size: 12px; }
-.cabinet-sample-phones > p { margin: 5px 0 14px; color: #758288; font-size: 12px; line-height: 1.45; }
-.cabinet-sample-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
-.cabinet-sample-phone {
-  display: grid; gap: 5px; align-content: center; min-height: 62px;
-  padding: 10px 14px; border: 1px solid #dce5e7; border-radius: 12px;
-  color: #263138; background: #fff; text-align: left;
-  transition: border-color .18s, background .18s, transform .18s;
-}
-.cabinet-sample-phone:hover { border-color: #79c9d2; background: #f3fbfb; transform: translateY(-2px); }
-.cabinet-sample-phone span { font-size: 13px; font-weight: 800; }
-.cabinet-sample-phone small { overflow: hidden; color: #68767c; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.cabinet-demo-access { margin-top: 22px; }
+.cabinet-demo-access summary { width: fit-content; color: #3f5058; cursor: pointer; font-size: 13px; font-weight: 800; }
+.cabinet-demo-access summary::marker { color: #b3211d; }
+.cabinet-demo-access > p { max-width: 470px; margin: 13px 0; color: #68777d; font-size: 12px; line-height: 1.5; }
+.cabinet-demo-list { display: grid; gap: 8px; }
+.cabinet-demo-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; padding: 12px 14px; border: 1px solid #dce6e8; border-radius: 12px; background: #f9fcfc; }
+.cabinet-demo-row > div { min-width: 0; }
+.cabinet-demo-row strong, .cabinet-demo-row small { display: block; overflow-wrap: anywhere; }
+.cabinet-demo-row strong { color: #263138; font-size: 13px; }
+.cabinet-demo-row small { margin-top: 4px; color: #64747b; font-size: 11px; line-height: 1.4; }
+.cabinet-demo-row button { flex: none; }
 .cabinet-row-icon {
   display: grid; place-items: center; width: 47px; height: 47px;
   border-radius: 13px; color: #14606c; background: #e4f6f8; font-size: 22px;
@@ -238,13 +228,12 @@
   .cabinet-journey li { min-width: 88px; }
   .cabinet-checklist { padding: 17px; }
   .cabinet-checklist ul { grid-template-columns: 1fr; }
-  .cabinet-sample-list { grid-template-columns: 1fr; }
-  .cabinet-company-list { grid-template-columns: 1fr; }
-  .cabinet-company-card { min-height: 205px; }
+  .cabinet-demo-row { flex-direction: column; align-items: stretch; }
+  .cabinet-demo-row button { width: 100%; }
   .cabinet-goals > div, .cabinet-input-grid, .cabinet-product-metrics, .cabinet-summary { grid-template-columns: 1fr; }
   .cabinet-application-row { grid-template-columns: 38px minmax(0, 1fr); }
   .cabinet-application-row > span:last-child { grid-column: 2; text-align: left; }
   .cabinet-submit { flex-direction: column; align-items: stretch; }
   .cabinet-submit > button { width: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { .cabinet-spinner { animation: none; } .cabinet-sample-phone { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .cabinet-spinner { animation: none; } }

@@ -130,7 +130,7 @@ function SubmitChecklist({ checklist }) {
 
 export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
-  const [authStage, setAuthStage] = useState('choose');
+  const [authStage, setAuthStage] = useState('phone');
   const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
@@ -188,11 +188,11 @@ export default function CreditCabinet() {
       setOtpRequest(null);
       setCode('');
       setPhone('');
-      setAuthStage('choose');
+      setAuthStage('phone');
       setScreen('new');
       setConflictedForm(null);
       setBusy('');
-      setError('Сессия истекла. Выберите компанию, чтобы продолжить.');
+      setError('Сессия истекла. Войдите по номеру телефона, чтобы продолжить.');
       setDetails([]);
     });
     return () => api.setUnauthorizedHandler(null);
@@ -269,7 +269,7 @@ export default function CreditCabinet() {
     }
     const profile = profiles.find((item) => item.role === 'CLIENT' && normalizePhone(item.phone) === normalized);
     if (!profile) {
-      setError('Этот номер не найден среди доступных профилей. Проверьте ввод или выберите номер ниже.');
+      setError('В тестовой версии доступен вход только по номерам из раздела «Тестовые профили».');
       return;
     }
     requestCode(profile);
@@ -372,7 +372,7 @@ export default function CreditCabinet() {
     setDocuments([]);
     setTimeline([]);
     setRecommendations(null);
-    setAuthStage('choose');
+    setAuthStage('phone');
     setScreen('new');
     setChosenProfile(null);
     setOtpRequest(null);
@@ -649,46 +649,26 @@ export default function CreditCabinet() {
 
   if (authStage !== 'ready') return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
-    {authStage === 'choose' ? <>
-      <h3>Выберите компанию</h3>
-      <p className="cabinet-lede">Откройте кабинет с данными примера, чтобы подобрать продукт и пройти путь заявки.</p>
-      {busy === 'profiles' && <LoadingCard title="Загружаем компании" detail="Подключаемся к сервису." />}
-      {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-company-list">
-        {profiles.filter((profile) => profile.role === 'CLIENT').map((profile, index) => <article className="cabinet-company-card" key={profile.id}>
-          <div className="cabinet-company-card-top"><span className="cabinet-company-number">0{index + 1}</span><span>{accountPath(profile.bankRelationship) === 'alfa_account' ? 'СЧЁТ В АЛЬФЕ' : accountPath(profile.bankRelationship) === 'external_account' ? 'СЧЁТ В ДРУГОМ БАНКЕ' : 'ДАННЫЕ ПРИМЕРА'}</span></div>
-          <h4>{profile.companyName}</h4>
-          <p>{accountPath(profile.bankRelationship) === 'alfa_account'
-            ? 'Проверьте данные компании и продолжите заявку в кабинете.'
-            : accountPath(profile.bankRelationship) === 'external_account'
-              ? 'Укажите обороты и приложите выписку из другого банка. Счёт в Альфе можно открыть позже.'
-              : 'Изучите подбор, сохраните черновик и проверьте статус заявки.'}</p>
-          <Button className="cabinet-primary-button" view="primary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>
-            {busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем кабинет…' : 'Продолжить ↗'}
-          </Button>
-        </article>)}
-      </div>}
-      {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
-      {!profiles.some((profile) => profile.role === 'CLIENT') && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
-      <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">Данные примера. SMS не отправляется; настоящие банковские операции здесь не выполняются.</p>
-      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('phone'); clearMessages(); }} disabled={Boolean(busy)}>Войти по номеру →</button>
-    </> : authStage === 'phone' ? <>
+    {authStage === 'phone' ? <>
       <h3>Войдите по номеру телефона</h3>
-      <p className="cabinet-lede">Продолжите работу с заявкой в личном кабинете. Здесь сохраняются черновики, документы и статусы заявок.</p>
+      <p className="cabinet-lede">После входа покажем данные компании, сохранённые заявки и следующий шаг.</p>
       <form className="cabinet-phone-form" onSubmit={submitPhone}>
         <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
       </form>
-      {busy === 'profiles' && <LoadingCard title="Загружаем профили" detail="Подключаемся к сервису." />}
-      {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-sample-phones"><strong>Номера для проверки</strong><p>Выберите номер, чтобы заполнить поле. Затем запросите код.</p><div className="cabinet-sample-list">
-        {profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <button type="button" className="cabinet-sample-phone" key={profile.id} onClick={() => { setPhone(profile.phone); setChosenProfile(null); clearMessages(); }} disabled={Boolean(busy)}>
-          <span>{profile.phone}</span><small>{profile.companyName}</small>
-        </button>)}
-      </div></div>}
+      {busy === 'profiles' && <LoadingCard title="Загружаем тестовые профили" detail="Подключаемся к сервису." />}
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">Вход сейчас доступен для тестовых номеров из списка. Автоматическая отправка SMS не подключена; для входа нужен код тестового окружения.</p>
-      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('choose'); setPhone(''); clearMessages(); }} disabled={Boolean(busy)}>← Выбрать компанию</button>
+      <p className="cabinet-fineprint">В прототипе доступны только тестовые номера. Настоящее SMS не отправляется; код задаётся тестовым окружением.</p>
+      {profiles.some((profile) => profile.role === 'CLIENT') && <details className="cabinet-demo-access">
+        <summary>Тестовые профили для проверки</summary>
+        <p>Для сквозной проверки можно открыть учебный кабинет без SMS или использовать указанный номер и тестовый код.</p>
+        <div className="cabinet-demo-list">{profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <div className="cabinet-demo-row" key={profile.id}>
+          <div><strong>{profile.companyName}</strong><small>{profile.phone} · {accountPath(profile.bankRelationship) === 'alfa_account' ? 'счёт в Альфе' : accountPath(profile.bankRelationship) === 'external_account' ? 'счёт в другом банке' : 'учебные данные'}</small></div>
+          <Button view="secondary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>{busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем…' : 'Открыть ↗'}</Button>
+        </div>)}</div>
+      </details>}
+      {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
     </> : <>
       <h3>Подтвердите вход</h3>
       <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
@@ -700,7 +680,6 @@ export default function CreditCabinet() {
       {notice && <p className="cabinet-notice" role="status">{notice}</p>}
       <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button></div>
       <p className="cabinet-fineprint">Автоматическая отправка SMS пока не подключена. Используйте код тестового окружения; он действует 5 минут.</p>
-      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('choose'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>← Выбрать компанию</button>
     </>}
   </div>;
 
