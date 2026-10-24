@@ -74,6 +74,11 @@
 .cabinet-account h3 { margin: 6px 0; font-size: clamp(23px, 2.4vw, 33px); }
 .cabinet-account p { margin: 0; color: #708087; font-size: 12px; line-height: 1.4; }
 .cabinet-account-mark { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: 12px; color: #fff; background: #d52a22; font-size: 24px; font-weight: 800; letter-spacing: -.15em; padding-right: 5px; }
+.cabinet-account-path { margin: -7px 0 24px; padding: 15px 18px; border: 1px solid #b9dfe3; border-radius: 13px; background: #f1fafb; }
+.cabinet-account-path.is-external_account { border-color: #f0d7be; background: #fff9f1; }
+.cabinet-account-path strong { display: block; color: #244f58; font-size: 13px; }
+.cabinet-account-path.is-external_account strong { color: #80552c; }
+.cabinet-account-path p { margin: 5px 0 0; color: #5f737a; font-size: 12px; line-height: 1.5; }
 .cabinet-tabs { display: flex; gap: 4px; margin: 0 0 30px; padding: 4px; border-radius: 13px; background: #f0f4f4; }
 .cabinet-tabs button { flex: 1; min-height: 42px; padding: 8px 12px; border: 0; border-radius: 10px; color: #65747b; background: transparent; font-size: 12px; font-weight: 800; }
 .cabinet-tabs button.active { color: #213238; background: #fff; box-shadow: 0 3px 10px rgba(25, 43, 47, .08); }

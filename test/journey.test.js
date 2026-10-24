@@ -51,6 +51,21 @@ test('turnover statement remains conditional until the server requires it', () =
   });
 });
 
+test('company without an Alfa account prepares external turnover evidence before submit', () => {
+  const turnover = { ...completeDraft, productId: 'turnover', purpose: 'stock' };
+  const withoutStatement = getSubmitChecklist(turnover, [], [], null, 'external_account');
+  assert.equal(withoutStatement.readyToSubmit, false);
+  assert.deepEqual(withoutStatement.items.find((item) => item.id === 'documents.BANK_STATEMENT'), {
+    id: 'documents.BANK_STATEMENT',
+    label: 'Выписка из другого банка',
+    state: 'missing',
+    message: 'Загрузите выписку, чтобы подтвердить обороты.',
+  });
+  assert.equal(getNextAction(turnover, [], [], [], null, 'external_account').kind, 'upload_document');
+  assert.equal(getSubmitChecklist(turnover, [{ documentType: 'BANK_STATEMENT' }], [], null, 'external_account').readyToSubmit, true);
+  assert.match(getNextAction({ status: 'approved' }, [], [], [], null, 'external_account').description, /после одобрения/);
+});
+
 test('missing fields and server-reported company age are actionable without claiming eligibility', () => {
   const incomplete = { ...completeDraft, productId: null, requestedAmountRub: null, monthlyRevenueRub: null };
   assert.equal(getSubmitChecklist(incomplete).readyToSubmit, false);

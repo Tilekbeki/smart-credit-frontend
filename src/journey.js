@@ -40,7 +40,7 @@ function checklistItem(id, label, complete, message) {
  * the server can still reject a product limit, company age or conditional bank
  * statement, and returns authoritative 422 details for those cases.
  */
-export function getSubmitChecklist(application, documents = [], validationDetails = [], product = null) {
+export function getSubmitChecklist(application, documents = [], validationDetails = [], product = null, bankRelationship = 'unknown') {
   if (!application) return { items: [], readyToSubmit: false, conditional: false };
 
   const uploaded = new Set(asItems(documents).map((document) => document.documentType));
@@ -60,9 +60,13 @@ export function getSubmitChecklist(application, documents = [], validationDetail
   if (application.productId === 'investment') {
     items.push(checklistItem('documents.EQUIPMENT_INVOICE', 'Счёт на оборудование', uploaded.has('EQUIPMENT_INVOICE'), 'Загрузите счёт на оборудование.'));
   } else if (application.productId === 'turnover') {
-    items.push(uploaded.has('BANK_STATEMENT')
-      ? { id: 'documents.BANK_STATEMENT', label: 'Выписка по счёту', state: 'done', message: '' }
-      : { id: 'documents.BANK_STATEMENT', label: 'Выписка по счёту', state: 'conditional', message: 'Может понадобиться при отправке: это зависит от данных, доступных банку.' });
+    if (bankRelationship === 'external_account') {
+      items.push(checklistItem('documents.BANK_STATEMENT', 'Выписка из другого банка', uploaded.has('BANK_STATEMENT'), 'Загрузите выписку, чтобы подтвердить обороты.'));
+    } else {
+      items.push(uploaded.has('BANK_STATEMENT')
+        ? { id: 'documents.BANK_STATEMENT', label: 'Выписка по счёту', state: 'done', message: '' }
+        : { id: 'documents.BANK_STATEMENT', label: 'Выписка по счёту', state: 'conditional', message: 'Может понадобиться при отправке: это зависит от данных, доступных банку.' });
+    }
   }
 
   for (const detail of asItems(validationDetails)) {
@@ -123,11 +127,11 @@ export function getJourneyStage(application, timeline = []) {
 }
 
 /** One actionable next step, or an explicit wait state where no action exists. */
-export function getNextAction(application, timeline = [], documents = [], validationDetails = [], product = null) {
+export function getNextAction(application, timeline = [], documents = [], validationDetails = [], product = null, bankRelationship = 'unknown') {
   if (!application) return { kind: 'start', label: 'Начать заявку', description: 'Укажите цель, сумму и срок.' };
 
   if (application.status === 'draft') {
-    const checklist = getSubmitChecklist(application, documents, validationDetails, product);
+    const checklist = getSubmitChecklist(application, documents, validationDetails, product, bankRelationship);
     const missing = checklist.items.filter((item) => item.state === 'missing');
     const missingField = missing.find((item) => !item.id.startsWith('documents.'));
     const missingDocument = missing.find((item) => item.id.startsWith('documents.'));
@@ -156,7 +160,13 @@ export function getNextAction(application, timeline = [], documents = [], valida
   };
   if (waiting[stage.id]) return { kind: 'wait', label: 'Следите за статусом', description: waiting[stage.id] };
   if (stage.id === 'approved' || stage.id === 'counter_offer') {
-    return { kind: 'offer_unavailable', label: 'Ожидайте доступа к условиям', description: 'Просмотр и принятие предложения в этом кабинете пока недоступны.' };
+    return {
+      kind: 'offer_unavailable',
+      label: 'Ожидайте доступа к условиям',
+      description: bankRelationship === 'external_account'
+        ? 'Для выдачи понадобится счёт бизнеса в Альфа-Банке; открыть его можно после одобрения. Просмотр и принятие предложения пока недоступны.'
+        : 'Просмотр и принятие предложения в этом кабинете пока недоступны.',
+    };
   }
   if (stage.id === 'rejected') return { kind: 'decision_unavailable', label: 'Решение зарегистрировано', description: 'Подробности решения в этом кабинете пока недоступны.' };
   if (stage.id === 'signed' || stage.id === 'closed') return { kind: 'finished', label: 'Действий не требуется', description: stage.description };

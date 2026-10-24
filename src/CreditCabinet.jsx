@@ -32,14 +32,17 @@ const formatRub = (value) => value == null ? '—' : `${new Intl.NumberFormat('r
 const formatDate = (value) => value ? new Date(value).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const shortId = (id) => id?.slice(0, 8).toUpperCase() || '—';
 const isProcessing = (status) => status === 'submitted' || status === 'processing';
+const accountPath = (value) => ['alfa_account', 'external_account'].includes(value) ? value : 'unknown';
 const initialForm = (company) => ({
   productId: null,
   purpose: 'stock',
   purposeDescription: '',
   requestedAmountRub: '1000000',
   termMonths: '24',
-  monthlyRevenueRub: String(company?.financials?.monthlyRevenueRub ?? ''),
-  monthlyExpensesRub: String(company?.financials?.monthlyExpensesRub ?? ''),
+  monthlyRevenueRub: accountPath(company?.bankRelationship) === 'alfa_account'
+    ? String(company?.financials?.monthlyRevenueRub ?? '') : '',
+  monthlyExpensesRub: accountPath(company?.bankRelationship) === 'alfa_account'
+    ? String(company?.financials?.monthlyExpensesRub ?? '') : '',
 });
 const formFromApplication = (application) => ({
   productId: application.productId,
@@ -627,11 +630,12 @@ export default function CreditCabinet() {
   const hasNewChanges = screen === 'new' && editableFields.some((field) => currentPayload[field] !== baselinePayload[field]);
   const confirmLeaveForm = () => !(hasUnsavedChanges || hasNewChanges || conflictedForm)
     || window.confirm('Введённые изменения не сохранены. Покинуть эту форму?');
+  const bankRelationship = accountPath(company?.bankRelationship);
   const selectedProduct = products.find((product) => product.id === selected?.productId) || null;
   const formProduct = products.find((product) => product.id === form.productId) || null;
-  const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct);
+  const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct, bankRelationship);
   const journeyStage = selected ? getJourneyStage(selected, timeline) : null;
-  const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct) : null;
+  const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct, bankRelationship) : null;
   const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
   const draftToContinue = applications.filter((item) => item.status === 'draft')
     .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
@@ -651,9 +655,13 @@ export default function CreditCabinet() {
       {busy === 'profiles' && <LoadingCard title="Загружаем компании" detail="Подключаемся к сервису." />}
       {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-company-list">
         {profiles.filter((profile) => profile.role === 'CLIENT').map((profile, index) => <article className="cabinet-company-card" key={profile.id}>
-          <div className="cabinet-company-card-top"><span className="cabinet-company-number">0{index + 1}</span><span>ДАННЫЕ ПРИМЕРА</span></div>
+          <div className="cabinet-company-card-top"><span className="cabinet-company-number">0{index + 1}</span><span>{accountPath(profile.bankRelationship) === 'alfa_account' ? 'СЧЁТ В АЛЬФЕ' : accountPath(profile.bankRelationship) === 'external_account' ? 'СЧЁТ В ДРУГОМ БАНКЕ' : 'ДАННЫЕ ПРИМЕРА'}</span></div>
           <h4>{profile.companyName}</h4>
-          <p>Изучите подбор, сохраните черновик и проверьте статус заявки.</p>
+          <p>{accountPath(profile.bankRelationship) === 'alfa_account'
+            ? 'Проверьте данные компании и продолжите заявку в кабинете.'
+            : accountPath(profile.bankRelationship) === 'external_account'
+              ? 'Укажите обороты и приложите выписку из другого банка. Счёт в Альфе можно открыть позже.'
+              : 'Изучите подбор, сохраните черновик и проверьте статус заявки.'}</p>
           <Button view="primary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>
             {busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем кабинет…' : 'Продолжить ↗'}
           </Button>
@@ -699,6 +707,9 @@ export default function CreditCabinet() {
   return <div className="credit-cabinet">
     <div className="cabinet-eyebrow"><span>КАБИНЕТ ПРЕДПРИНИМАТЕЛЯ</span><button type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти ↗</button></div>
     <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div><span className="cabinet-account-mark" aria-hidden="true">а.</span></div>
+    {bankRelationship !== 'unknown' && <div className={`cabinet-account-path is-${bankRelationship}`}><strong>{bankRelationship === 'alfa_account' ? 'Счёт в Альфа-Банке уже есть' : 'Счёта в Альфа-Банке пока нет'}</strong><p>{bankRelationship === 'alfa_account'
+      ? 'Данные об оборотах подставлены из профиля компании. Проверьте их перед отправкой заявки.'
+      : 'Заявку можно подготовить и отправить без счёта в Альфе. Для подтверждения оборотов приложите выписку из другого банка; счёт в Альфе понадобится после одобрения, перед выдачей.'}</p></div>}
     <div className="cabinet-tabs" role="navigation" aria-label="Разделы кабинета">
       <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew} disabled={Boolean(busy)}>Новая заявка</button>
       <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={goToList} disabled={Boolean(busy)}>Мои заявки <span>{applicationsTotal}</span></button>
@@ -734,7 +745,11 @@ export default function CreditCabinet() {
           <div><Input label="Выручка в месяц, ₽" name="monthlyRevenueRub" type="number" min="0" disabled={Boolean(busy)} value={form.monthlyRevenueRub} onChange={(_, data) => updateField('monthlyRevenueRub', data?.value ?? '')} />{fieldError('monthlyRevenueRub') && <small className="cabinet-inline-error" role="alert">{fieldError('monthlyRevenueRub')}</small>}</div>
           <div><Input label="Расходы в месяц, ₽" name="monthlyExpensesRub" type="number" min="0" disabled={Boolean(busy)} value={form.monthlyExpensesRub} onChange={(_, data) => updateField('monthlyExpensesRub', data?.value ?? '')} />{fieldError('monthlyExpensesRub') && <small className="cabinet-inline-error" role="alert">{fieldError('monthlyExpensesRub')}</small>}</div>
         </div>
-        <p className="cabinet-helper">Выручка и расходы подставлены из профиля компании. Измените их, если расчёт нужен с другими данными.</p>
+        <p className="cabinet-helper">{bankRelationship === 'alfa_account'
+          ? 'Выручка и расходы подставлены из профиля компании. Проверьте их и при необходимости измените.'
+          : bankRelationship === 'external_account'
+            ? 'Банк пока не видит обороты по вашему счёту в другом банке. Укажите месячную выручку и расходы; для оборотного кредита понадобится выписка.'
+            : 'Укажите месячную выручку и расходы. Источник оборотов пока не подтверждён.'}</p>
         <Button view="secondary" type="submit" disabled={Boolean(busy)}>{busy === 'recommendations' ? 'Считаем варианты…' : 'Рассчитать варианты ↗'}</Button>
       </form>
 
@@ -756,16 +771,16 @@ export default function CreditCabinet() {
 
       {!recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} disabled={Boolean(busy)} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>{fieldError('productId') && <small className="cabinet-inline-error" role="alert">{fieldError('productId')}</small>}<small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
       {formProduct && <div className="cabinet-product-terms"><strong>Условия выбранного продукта</strong><span>Сумма: {formatRub(formProduct.minAmountRub)}–{formatRub(formProduct.maxAmountRub)}</span><span>Срок: {formProduct.minTermMonths}–{formProduct.maxTermMonths} мес.</span><span>Стаж бизнеса: от {formProduct.minBusinessAgeMonths} мес.</span></div>}
-      <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>
+      <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? bankRelationship === 'external_account' ? 'Для проверки оборотов понадобится выписка из другого банка. Загрузить её можно после сохранения черновика.' : 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>
       <div className="cabinet-primary-actions"><Button view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>
 
       {selected && <SubmitChecklist checklist={checklist} />}
       {selected && nextAction && <div className="cabinet-next-action" aria-live="polite"><div><span>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div>{['complete_draft', 'upload_document', 'review_and_submit'].includes(nextAction.kind) && <Button view="secondary" onClick={scrollToNextAction}>Перейти ↗</Button>}</div>}
 
       {selected && <div className="cabinet-documents" ref={documentsRef}><div className="cabinet-section-head"><div><span>ДОКУМЕНТЫ</span><h4>Файлы заявки</h4></div><small>PDF, PNG или JPEG · до 5 МБ</small></div>
-        <form className="cabinet-upload" onSubmit={upload}><label>Тип документа<select value={documentType} disabled={Boolean(busy)} onChange={(event) => setDocumentType(event.target.value)}><option value="BANK_STATEMENT">Выписка по счёту</option><option value="EQUIPMENT_INVOICE">Счёт на оборудование</option></select></label><label>Файл<input ref={fileInputRef} type="file" disabled={Boolean(busy)} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><Button view="secondary" type="submit" disabled={Boolean(busy) || !file}>{busy === 'uploading' ? 'Загружаем…' : 'Загрузить файл'}</Button></form>
+        <form className="cabinet-upload" onSubmit={upload}><label>Тип документа<select value={documentType} disabled={Boolean(busy)} onChange={(event) => setDocumentType(event.target.value)}><option value="BANK_STATEMENT">{bankRelationship === 'external_account' ? 'Выписка из другого банка' : 'Выписка по счёту'}</option><option value="EQUIPMENT_INVOICE">Счёт на оборудование</option></select></label><label>Файл<input ref={fileInputRef} type="file" disabled={Boolean(busy)} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><Button view="secondary" type="submit" disabled={Boolean(busy) || !file}>{busy === 'uploading' ? 'Загружаем…' : 'Загрузить файл'}</Button></form>
         {details.filter((item) => item.field?.startsWith('documents.')).map((item, index) => <p className="cabinet-inline-error" key={`${item.field}-${index}`} role="alert">{item.message}</p>)}
-        <DocumentList documents={documents} download={download} busy={busy} />
+        <DocumentList documents={documents} download={download} busy={busy} bankRelationship={bankRelationship} />
       </div>}
 
       {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку ↗'}</Button></div>}
@@ -782,12 +797,12 @@ export default function CreditCabinet() {
       {isProcessing(selected.status) && <div className="cabinet-processing-note" role="status"><span className="cabinet-spinner" aria-hidden="true" /><span>Статус обновляется каждые 5 секунд. Кредитное решение пока не опубликовано.</span></div>}
       <div className="cabinet-section-head"><h4>История заявки</h4><Button view="secondary" type="button" onClick={async () => { setBusy('refresh'); try { await refreshSelected(selected.applicationId); } catch (failure) { reportError(failure); } finally { setBusy(''); } }} disabled={Boolean(busy)}>{busy === 'refresh' ? 'Обновляем…' : 'Обновить'}</Button></div>
       {timeline.length === 0 ? <p className="cabinet-helper">События пока не появились.</p> : <ol className="cabinet-timeline">{timeline.map((event) => <li key={event.eventId}><span className="cabinet-timeline-dot" aria-hidden="true" /><div><strong>{event.title}</strong><time dateTime={event.createdAt}>{formatDate(event.createdAt)}</time></div></li>)}</ol>}
-      <div className="cabinet-documents"><div className="cabinet-section-head"><h4>Документы</h4></div><DocumentList documents={documents} download={download} busy={busy} /></div>
+      <div className="cabinet-documents"><div className="cabinet-section-head"><h4>Документы</h4></div><DocumentList documents={documents} download={download} busy={busy} bankRelationship={bankRelationship} /></div>
     </div>}
   </div>;
 }
 
-function DocumentList({ documents, download, busy }) {
+function DocumentList({ documents, download, busy, bankRelationship }) {
   if (documents.length === 0) return <p className="cabinet-helper">Документов пока нет.</p>;
-  return <ul className="cabinet-document-list">{documents.map((document) => <li key={document.documentId}><span className="cabinet-document-icon" aria-hidden="true">↧</span><span><strong>{document.fileName}</strong><small>{DOCUMENT_NAMES[document.documentType] || document.documentType} · {formatDate(document.uploadedAt)}</small></span><button type="button" onClick={() => download(document)} disabled={Boolean(busy)} aria-label={`Скачать ${document.fileName}`}>{busy === `download-${document.documentId}` ? '...' : 'Скачать'}</button></li>)}</ul>;
+  return <ul className="cabinet-document-list">{documents.map((document) => <li key={document.documentId}><span className="cabinet-document-icon" aria-hidden="true">↧</span><span><strong>{document.fileName}</strong><small>{document.documentType === 'BANK_STATEMENT' && bankRelationship === 'external_account' ? 'Выписка из другого банка' : DOCUMENT_NAMES[document.documentType] || document.documentType} · {formatDate(document.uploadedAt)}</small></span><button type="button" onClick={() => download(document)} disabled={Boolean(busy)} aria-label={`Скачать ${document.fileName}`}>{busy === `download-${document.documentId}` ? '...' : 'Скачать'}</button></li>)}</ul>;
 }

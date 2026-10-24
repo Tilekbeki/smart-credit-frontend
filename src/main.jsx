@@ -47,7 +47,7 @@ function LandingPage() {
           <div className="hero-glow hero-glow-two" aria-hidden="true" />
           <div className="container hero-layout">
             <div className="hero-copy">
-              <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Концепт для Альфа-Будущее Хакатона</span>
+              <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Кредит для идей бизнеса</span>
               <h1 id="hero-title">Деньги нужны бизнесу.<br /><em>Ясность</em> — вам.</h1>
               <p className="hero-lede">От задачи бизнеса до отправленной заявки: подберите продукт, сохраните черновик и следите за ходом проверки в одном кабинете.</p>
               <div className="hero-actions">
@@ -58,24 +58,17 @@ function LandingPage() {
               </div>
               <p className="hero-note">Сценарий работает на синтетических данных. Решение по кредиту и выдача средств пока готовятся.</p>
             </div>
-            <div className="hero-visual" aria-label="Иллюстрация концепта с красным котом и голубым телефоном">
+            <div className="hero-visual" aria-label="Иллюстрация с красным котом и голубым телефоном">
               <div className="hero-orbit orbit-one" aria-hidden="true" />
               <div className="hero-orbit orbit-two" aria-hidden="true" />
               <img className="hero-art" src={heroArt} alt="Красный 3D-кот рядом с голубым телефоном" />
-              <div className="float-card float-card-top" aria-hidden="true">
-                <span className="float-card-icon">✦</span>
-                <span>Вариант под вашу цель</span>
-              </div>
-              <div className="float-card float-card-bottom" aria-hidden="true">
-                <span className="status-pulse" />
-                <span>Статус всегда на виду</span>
-              </div>
+              <div className="float-card float-card-flowers" aria-hidden="true"><span className="float-card-emoji">💐</span><span>Цветочный магазин</span></div>
+              <div className="float-card float-card-new-place" aria-hidden="true"><span className="float-card-emoji">🔑</span><span>Новая точка</span></div>
+              <div className="float-card float-card-car-wash" aria-hidden="true"><span className="float-card-emoji">🚗</span><span>Автомойка</span></div>
+              <div className="float-card float-card-shawarma" aria-hidden="true"><span className="float-card-emoji">🥙</span><span>Шаурмечная</span></div>
+              <span className="hero-sparkle hero-sparkle-star" aria-hidden="true">✦</span>
+              <span className="hero-sparkle hero-sparkle-gift" aria-hidden="true">🎁</span>
             </div>
-          </div>
-          <div className="container hero-footer">
-            <span>01 / 06</span>
-            <div className="hero-progress"><span /></div>
-            <a href="#why">Листайте вниз <span aria-hidden="true">↘</span></a>
           </div>
         </section>
 
@@ -179,7 +172,7 @@ function LandingPage() {
             <div className="preview-intro" data-reveal>
               <span className="eyebrow eyebrow-light">05 / Ваш следующий шаг</span>
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
-              <p>Выберите учебную компанию, подберите продукт, сохраните черновик и следите за заявкой на отдельной странице.</p>
+              <p>Попробуйте два пути: со счётом в Альфа-Банке и со счётом в другом банке. Подберите продукт, сохраните черновик и следите за заявкой.</p>
               <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
               <div className="preview-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
             </div>
@@ -201,7 +194,8 @@ function LandingPage() {
             <div className="faq-list" data-reveal>
               <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Это прототип для хакатона на синтетических данных. Заявки сохраняются в сервисе проекта; реальных банковских операций нет.</p></details>
               <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор предлагает тип продукта. После отправки заявки система выполняет проверки, а финальное кредитное решение пока не реализовано.</p></details>
-              <details><summary>Что нужно для отправки?<span aria-hidden="true">+</span></summary><p>Укажите цель, сумму, срок, выручку и расходы. Для некоторых продуктов или профилей потребуется документ; кабинет покажет требования при отправке.</p></details>
+              <details><summary>Нужен ли счёт в Альфа-Банке до заявки?<span aria-hidden="true">+</span></summary><p>Нет. По опубликованным условиям банка счёт можно открыть после одобрения заявки; для выдачи денег он понадобится. В этом прототипе оба пути показаны на синтетических компаниях.</p></details>
+              <details><summary>Что нужно для отправки?<span aria-hidden="true">+</span></summary><p>Укажите цель, сумму, срок, выручку и расходы. Если счёт в другом банке и нужен оборотный кредит, приложите выписку для подтверждения оборотов. Другие требования кабинет покажет перед отправкой.</p></details>
               <details><summary>Почему кредитных продуктов два?<span aria-hidden="true">+</span></summary><p>В первом релизе показаны оборотные средства и инвестиционный кредит. Другую задачу можно описать и сохранить в черновике; для отправки заявки пока нужно выбрать поддерживаемую цель.</p></details>
             </div>
           </div>
