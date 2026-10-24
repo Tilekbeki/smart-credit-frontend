@@ -805,8 +805,7 @@ export default function CreditCabinet() {
 
   return <div className="credit-cabinet credit-cabinet-dashboard">
     <aside className="cabinet-sidebar" aria-label="Компания и разделы">
-    <div className="cabinet-sidebar-top">ЛИЧНЫЙ КАБИНЕТ</div>
-    <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div><span className="cabinet-account-mark" aria-hidden="true">а.</span></div>
+    <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div></div>
     <div className="cabinet-tabs" role="navigation" aria-label="Разделы кабинета">
       <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew} disabled={Boolean(busy)}>Новая заявка</button>
       <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={goToList} disabled={Boolean(busy)}>Мои заявки <span>{applicationsTotal}</span></button>
@@ -817,7 +816,7 @@ export default function CreditCabinet() {
     <button className="cabinet-signout" type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти из кабинета</button>
     </aside>
     <section className="cabinet-main-panel" aria-label={panelTitle}>
-      <header className="cabinet-panel-header"><div><span className="cabinet-panel-kicker">КАБИНЕТ ПРЕДПРИНИМАТЕЛЯ</span><h2>{panelTitle}</h2><p>{panelDescription}</p></div><span className="cabinet-panel-count">Заявок: {applicationsTotal}</span></header>
+      <header className="cabinet-panel-header"><div><h2>{panelTitle}</h2><p>{panelDescription}</p></div><span className="cabinet-panel-count">Заявок: {applicationsTotal}</span></header>
       <div className="cabinet-panel-content" ref={panelContentRef} aria-busy={busy === 'opening'}>
     {error && <ErrorNotice error={error} details={details} />}
     {notice && <p className="cabinet-notice" role="status">{notice}</p>}

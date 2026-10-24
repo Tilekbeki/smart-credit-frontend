@@ -523,6 +523,7 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .cabinet-page::before { position: absolute; z-index: -1; top: 0; right: -18%; width: min(85vw, 1100px); aspect-ratio: 1; content: ''; border-radius: 50%; background: radial-gradient(circle, rgba(29,134,150,.24), transparent 65%); pointer-events: none; }
 .cabinet-page::after { position: absolute; z-index: -1; bottom: -28%; left: -23%; width: min(75vw, 950px); aspect-ratio: 1; content: ''; border-radius: 50%; background: radial-gradient(circle, rgba(200,37,28,.14), transparent 65%); pointer-events: none; }
 .cabinet-page-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 92px; padding: 17px var(--page-gutter); border-bottom: 1px solid rgba(255,255,255,.1); }
+.cabinet-page-header .brand-name { font-size: 14px; line-height: 1.15; }
 .cabinet-home-link { display: inline-flex; align-items: center; min-height: 42px; padding: 0 16px; border: 1px solid rgba(255,255,255,.22); border-radius: 11px; color: #e8f1f3; font-size: 13px; font-weight: 700; text-decoration: none; transition: border-color .2s ease, background .2s ease; }
 .cabinet-home-link:hover { border-color: rgba(145,232,240,.65); background: rgba(255,255,255,.08); }
 .cabinet-page-main { display: grid; grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr); align-items: start; column-gap: clamp(36px, 5vw, 74px); width: min(100%, 1360px); padding-top: clamp(48px, 6vw, 88px); padding-bottom: 85px; }

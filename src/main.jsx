@@ -225,7 +225,7 @@ function LandingPage() {
 
 function CabinetPage() {
   useEffect(() => {
-    document.title = 'Личный кабинет | Умный кредитный кабинет';
+    document.title = 'Заявки | Умный кредитный кабинет';
   }, []);
 
   return (
@@ -233,14 +233,13 @@ function CabinetPage() {
       <a className="skip-link" href="#main">Перейти к содержимому</a>
       <header className="cabinet-page-header">
         <a className="brand" href="/" aria-label="Умный кредитный кабинет — на главную">
-          <span className="brand-mark">а<span>.</span></span>
           <span className="brand-name">умный кредитный<br />кабинет</span>
         </a>
         <a className="cabinet-home-link" href="/">← На главную</a>
       </header>
       <main className="cabinet-page-main container" id="main">
         <div className="cabinet-page-intro">
-          <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Личный кабинет предпринимателя</span>
+          <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Кредит для бизнеса</span>
           <h1>Кредитный путь<br /><em>под вашу задачу.</em></h1>
           <p>Подбирайте продукт, продолжайте черновики и следите за статусом заявок в одном месте.</p>
         </div>

@@ -80,7 +80,6 @@
 .cabinet-account-kicker { color: #a4302a; font-size: 10px; font-weight: 800; letter-spacing: .12em; }
 .cabinet-account h3 { margin: 6px 0; font-size: clamp(23px, 2.4vw, 33px); }
 .cabinet-account p { margin: 0; color: #708087; font-size: 12px; line-height: 1.4; }
-.cabinet-account-mark { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: 12px; color: #fff; background: #d52a22; font-size: 24px; font-weight: 800; letter-spacing: -.15em; padding-right: 5px; }
 .cabinet-account-path { margin: -7px 0 24px; padding: 15px 18px; border: 1px solid #b9dfe3; border-radius: 13px; background: #f1fafb; }
 .cabinet-account-path.is-external_account { border-color: #f0d7be; background: #fff9f1; }
 .cabinet-account-path strong { display: block; color: #244f58; font-size: 13px; }
@@ -89,7 +88,7 @@
 .cabinet-tabs { display: flex; gap: 4px; margin: 0 0 30px; padding: 4px; border-radius: 13px; background: #f0f4f4; }
 .cabinet-tabs button { flex: 1; min-height: 42px; padding: 8px 12px; border: 0; border-radius: 10px; color: #65747b; background: transparent; font-size: 12px; font-weight: 800; }
 .cabinet-tabs button.active { color: #213238; background: #fff; box-shadow: 0 3px 10px rgba(25, 43, 47, .08); }
-.cabinet-tabs span { display: inline-block; min-width: 20px; margin-left: 4px; padding: 2px 5px; border-radius: 10px; color: #40757d; background: #e1f4f5; font-size: 10px; }
+.cabinet-tabs span { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; flex: none; margin-left: 4px; padding: 0 5px; border-radius: 999px; color: #40757d; background: #e1f4f5; font-size: 10px; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
 .cabinet-section-head { display: flex; align-items: center; justify-content: space-between; gap: 15px; margin-bottom: 16px; }
 .cabinet-section-head h4 { margin: 0; }
 .cabinet-list-hint { max-width: 410px; margin: 7px 0 0; color: #708087; font-size: 12px; line-height: 1.45; }
@@ -297,16 +296,6 @@
   padding: 27px 21px 21px;
   scrollbar-gutter: stable;
 }
-.cabinet-sidebar-top,
-.cabinet-panel-kicker {
-  color: #aa322d;
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: .12em;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-.cabinet-sidebar-top { margin: 0 0 29px; padding-inline: 4px; }
 .cabinet-sidebar .cabinet-account {
   align-items: flex-start;
   gap: 11px;
@@ -315,7 +304,6 @@
 }
 .cabinet-sidebar .cabinet-account h3 { margin: 7px 0 7px; font-size: clamp(20px, 2vw, 26px); line-height: 1.12; overflow-wrap: anywhere; }
 .cabinet-sidebar .cabinet-account p { overflow-wrap: anywhere; }
-.cabinet-sidebar .cabinet-account-mark { width: 38px; height: 38px; border-radius: 10px; font-size: 22px; }
 .cabinet-sidebar .cabinet-account-path { margin: 0 0 25px; padding: 14px; }
 .cabinet-sidebar .cabinet-tabs {
   display: grid;
@@ -368,11 +356,11 @@
 .cabinet-panel-header {
   position: relative;
   flex: none;
-  min-height: 151px;
+  min-height: 128px;
   padding: 27px 38px 22px;
   border-bottom: 1px solid #e7ecee;
 }
-.cabinet-panel-header h2 { max-width: calc(100% - 130px); margin: 8px 0 7px; color: #222b30; font-size: clamp(27px, 2.5vw, 34px); line-height: 1.1; }
+.cabinet-panel-header h2 { max-width: calc(100% - 130px); margin: 0 0 7px; color: #222b30; font-size: clamp(27px, 2.5vw, 34px); line-height: 1.1; }
 .cabinet-panel-header p { max-width: 650px; margin: 0; color: #65767d; font-size: 13px; line-height: 1.45; }
 .cabinet-panel-count {
   position: absolute;
@@ -503,13 +491,12 @@
 @media (max-width: 900px) {
   .credit-cabinet-dashboard { grid-template-columns: minmax(0, 1fr); gap: 12px; height: auto; min-height: 0; }
   .cabinet-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) auto; overflow: visible; padding: 19px 22px 16px; }
-  .cabinet-sidebar-top { grid-column: 1 / -1; margin: 0 0 12px; }
   .cabinet-sidebar .cabinet-account { grid-column: 1; margin: 0 0 14px; }
   .cabinet-sidebar .cabinet-account-path { grid-column: 1 / -1; margin: 0 0 15px; }
   .cabinet-sidebar .cabinet-tabs { grid-column: 1 / -1; display: flex; margin: 0; padding-top: 12px; border-top: 1px solid #e8edef; }
   .cabinet-sidebar .cabinet-tabs button { flex: 1; }
   .cabinet-sidebar .cabinet-account-details { grid-column: 1 / -1; margin: 12px 0 0; }
-  .cabinet-signout { grid-column: 2; grid-row: 2; align-self: start; margin: 0; padding: 4px; border: 0; text-align: right; }
+  .cabinet-signout { grid-column: 2; grid-row: 1; align-self: start; margin: 0; padding: 4px; border: 0; text-align: right; }
   .cabinet-main-panel { min-height: 630px; overflow: visible; }
   .cabinet-panel-content { overflow: visible; }
 }
@@ -520,7 +507,6 @@
   .cabinet-sidebar { display: flex; padding: 18px 17px 14px; border-radius: 18px; }
   .cabinet-sidebar .cabinet-account { align-items: start; width: 100%; padding-inline: 0; }
   .cabinet-sidebar .cabinet-account h3 { font-size: 21px; }
-  .cabinet-sidebar .cabinet-account-mark { width: 34px; height: 34px; font-size: 20px; }
   .cabinet-sidebar .cabinet-account-path { margin-bottom: 13px; padding: 12px; }
   .cabinet-sidebar .cabinet-account-path p { font-size: 11px; line-height: 1.45; }
   .cabinet-sidebar .cabinet-tabs { gap: 4px; }
