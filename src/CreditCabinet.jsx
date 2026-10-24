@@ -132,6 +132,7 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
   const [draftAnswer, setDraftAnswer] = useState('');
   const [answerError, setAnswerError] = useState('');
   const [typing, setTyping] = useState(false);
+  const [customPurposeText, setCustomPurposeText] = useState('');
   const threadRef = useRef(null);
   const replyAreaRef = useRef(null);
   const completeActionsRef = useRef(null);
@@ -149,10 +150,10 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
   ];
   const currentStep = steps[stepIndex];
   const complete = stepIndex >= steps.length;
-  const questionCount = steps.length;
+  const questionCount = steps.length - (customPurposeText ? 1 : 0);
 
   useEffect(() => {
-    setDraftAnswer(currentStep ? String(form[currentStep.field] ?? '') : '');
+    setDraftAnswer(currentStep?.field === 'purpose' ? '' : currentStep ? String(form[currentStep.field] ?? '') : '');
     setAnswerError('');
   }, [stepIndex, currentStep?.field]);
 
@@ -178,7 +179,7 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
   }, [typing, stepIndex]);
 
   const answerLabel = (field) => {
-    if (field === 'purpose') return GOALS.find(([id]) => id === form.purpose)?.[1] || '—';
+    if (field === 'purpose') return customPurposeText || GOALS.find(([id]) => id === form.purpose)?.[1] || '—';
     if (field === 'purposeDescription') return form.purposeDescription || '—';
     if (field === 'termMonths') return `${form.termMonths} мес.`;
     return formatRub(Number(form[field]));
@@ -187,6 +188,26 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
   const answer = (rawValue) => {
     if (!currentStep || busy || typing) return;
     const value = String(rawValue).trim();
+    if (currentStep.field === 'purpose') {
+      if (!value) { setAnswerError('Выберите цель или напишите её своими словами.'); return; }
+      if (value.length > 300) { setAnswerError('Не больше 300 символов.'); return; }
+      const knownPurpose = GOALS.find(([id, label]) => id === value || label.toLocaleLowerCase('ru-RU') === value.toLocaleLowerCase('ru-RU'));
+      if (!knownPurpose) {
+        setCustomPurposeText(value);
+        updateField('purpose', 'other');
+        updateField('purposeDescription', value);
+        setAnswerError('');
+        setTyping(true);
+        setStepIndex((previous) => previous + 2);
+        return;
+      }
+      setCustomPurposeText('');
+      updateField('purpose', knownPurpose[0]);
+      setAnswerError('');
+      setTyping(true);
+      setStepIndex((previous) => previous + 1);
+      return;
+    }
     if (currentStep.field === 'purposeDescription' && !value) {
       setAnswerError('Коротко опишите задачу, чтобы сохранить её в черновике.');
       return;
@@ -216,9 +237,9 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
         : bankRelationship === 'alfa_account' && ['monthlyRevenueRub', 'monthlyExpensesRub'].includes(currentStep?.field) && form[currentStep.field] !== ''
           ? [{ value: form[currentStep.field], label: `Верно, ${formatRub(Number(form[currentStep.field]))}` }]
           : [];
-  const showComposer = currentStep && currentStep.field !== 'purpose';
-  const composerIsText = currentStep?.field === 'purposeDescription';
-  const composerLabel = composerIsText ? 'Опишите задачу' : currentStep?.field === 'termMonths' ? 'Свой срок, мес.'
+  const showComposer = Boolean(currentStep);
+  const composerIsText = ['purpose', 'purposeDescription'].includes(currentStep?.field);
+  const composerLabel = currentStep?.field === 'purpose' ? 'Или напишите свою цель' : currentStep?.field === 'purposeDescription' ? 'Опишите задачу' : currentStep?.field === 'termMonths' ? 'Свой срок, мес.'
     : currentStep?.field === 'monthlyRevenueRub' ? 'Выручка за месяц, ₽'
       : currentStep?.field === 'monthlyExpensesRub' ? 'Расходы за месяц, ₽' : 'Своя сумма, ₽';
 
@@ -226,7 +247,7 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
     <header className="cabinet-chat-header"><div><span>ПОМОЩНИК ПО ЗАЯВКЕ</span><h4>Соберём заявку вместе</h4><p>Для {companyName}. Несколько коротких вопросов — ответы можно изменить перед отправкой.</p><div className="cabinet-chat-meta">{bankRelationship === 'external_account' ? 'Счёт в другом банке' : bankRelationship === 'alfa_account' ? 'Счёт в Альфе' : 'Источник оборотов не подтверждён'}</div></div><div className="cabinet-chat-header-actions"><button type="button" onClick={onMyApplications} disabled={Boolean(busy) || typing}>Мои заявки</button><button type="button" onClick={onManualEntry} disabled={Boolean(busy) || typing}>Обычная форма ↗</button><button type="button" onClick={onSignOut} disabled={Boolean(busy) || typing}>Выйти</button></div></header>
     <ol className="cabinet-chat-thread" aria-label="Сообщения" ref={threadRef}>
       <li className="cabinet-chat-row is-assistant"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">Привет! Я помогу начать заявку. Выберите ответы или введите свои значения — затем подберём вариант или сохраним черновик.</div></li>
-      {steps.slice(0, stepIndex).map((step) => <React.Fragment key={step.field}>
+      {steps.slice(0, stepIndex).filter((step) => !(customPurposeText && step.field === 'purposeDescription')).map((step) => <React.Fragment key={step.field}>
         <li className="cabinet-chat-row is-assistant"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">{step.question}</div></li>
         <li className="cabinet-chat-row is-user"><div className="cabinet-chat-bubble">{answerLabel(step.field)}</div></li>
       </React.Fragment>)}
@@ -238,11 +259,11 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
     </ol>
     {!complete && !typing && <div className="cabinet-chat-reply-area" ref={replyAreaRef}>
       {quickReplies.length > 0 && <div className="cabinet-chat-choices" aria-label="Варианты ответа">{quickReplies.map((reply) => <button type="button" key={String(reply.value)} onClick={() => answer(reply.value)} disabled={Boolean(busy)}>{reply.label}</button>)}</div>}
-      {showComposer && <form className="cabinet-chat-compose" onSubmit={(event) => { event.preventDefault(); answer(draftAnswer); }}><label htmlFor="cabinet-chat-answer">{composerLabel}</label><div><input id="cabinet-chat-answer" type={composerIsText ? 'text' : 'number'} min={currentStep.field === 'monthlyRevenueRub' || currentStep.field === 'monthlyExpensesRub' ? '0' : '1'} max={currentStep.field === 'termMonths' ? '120' : '1000000000000'} value={draftAnswer} onChange={(event) => { setDraftAnswer(event.target.value); setAnswerError(''); }} disabled={Boolean(busy)} placeholder={composerIsText ? 'Например, открыть новую точку' : 'Введите значение'} /><button type="submit" disabled={Boolean(busy)} aria-label="Отправить ответ">Отправить ↗</button></div></form>}
+      {showComposer && <form className="cabinet-chat-compose" onSubmit={(event) => { event.preventDefault(); answer(draftAnswer); }}><label htmlFor="cabinet-chat-answer">{composerLabel}</label><div><input id="cabinet-chat-answer" type={composerIsText ? 'text' : 'number'} min={currentStep.field === 'monthlyRevenueRub' || currentStep.field === 'monthlyExpensesRub' ? '0' : '1'} max={currentStep.field === 'termMonths' ? '120' : '1000000000000'} value={draftAnswer} onChange={(event) => { setDraftAnswer(event.target.value); setAnswerError(''); }} disabled={Boolean(busy)} placeholder={currentStep.field === 'purpose' ? 'Например, открыть цветочный магазин' : composerIsText ? 'Например, открыть новую точку' : 'Введите значение'} /><button type="submit" disabled={Boolean(busy)} aria-label="Отправить ответ">↑</button></div></form>}
       {answerError && <p className="cabinet-inline-error" role="alert">{answerError}</p>}
     </div>}
     {complete && !typing && <div className="cabinet-chat-complete" ref={completeActionsRef}><p>{bankRelationship === 'external_account' ? 'Обороты указаны с ваших слов. Для оборотного кредита понадобится выписка из другого банка.' : 'Проверьте выбранные параметры и условия продукта перед отправкой.'}</p><Button className="cabinet-primary-button" view="primary" type="button" onClick={form.purpose === 'other' ? onManualEntry : onShowOffers} disabled={Boolean(busy)}>{busy === 'recommendations' ? 'Подбираем варианты…' : form.purpose === 'other' ? 'Перейти к черновику ↗' : recommendations ? 'Обновить варианты ↗' : 'Показать варианты ↗'}</Button></div>}
-    <footer className="cabinet-chat-footer"><span>{complete ? 'Ответы собраны' : `Вопрос ${stepIndex + 1} из ${questionCount}`}</span>{stepIndex > 0 && <button type="button" onClick={() => setStepIndex((previous) => previous - 1)} disabled={Boolean(busy) || typing}>← Изменить прошлый ответ</button>}</footer>
+    <footer className="cabinet-chat-footer"><span>{complete ? 'Ответы собраны' : `Вопрос ${stepIndex + 1 - (customPurposeText ? 1 : 0)} из ${questionCount}`}</span>{stepIndex > 0 && <button type="button" onClick={() => setStepIndex((previous) => previous === 2 && customPurposeText ? 0 : previous - 1)} disabled={Boolean(busy) || typing}>← Изменить прошлый ответ</button>}</footer>
   </section>;
 }
 
@@ -799,7 +820,7 @@ export default function CreditCabinet() {
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
     {authStage === 'phone' ? <>
       <h3>Войдите в кабинет</h3>
-      <p className="cabinet-lede">Выберите учебную компанию, чтобы посмотреть путь заявки. Вход по номеру телефона тоже доступен.</p>
+      <p className="cabinet-lede">Выберите компанию, чтобы пройти путь заявки. Вход по номеру телефона тоже доступен.</p>
       {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-quick-entry">
         <span>БЫСТРЫЙ ВХОД</span>
         <h4>Посмотрите оба сценария</h4>
@@ -817,7 +838,7 @@ export default function CreditCabinet() {
       {busy === 'profiles' && <LoadingCard title="Загружаем тестовые профили" detail="Подключаемся к сервису." />}
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">В прототипе доступны только тестовые номера. Настоящее SMS не отправляется; код задаётся тестовым окружением.</p>
+      <p className="cabinet-fineprint">Вход по номеру доступен для указанных компаний. SMS в этом сценарии не отправляется.</p>
       {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
     </> : <>
       <h3>Подтвердите вход</h3>

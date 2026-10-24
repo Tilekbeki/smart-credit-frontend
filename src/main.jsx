@@ -174,12 +174,12 @@ function LandingPage() {
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
               <p>Войдите, подберите продукт, сохраните черновик и следите за заявкой. Кабинет подскажет шаги с учётом данных вашей компании.</p>
               <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
-              <div className="preview-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
+              <div className="preview-annotation"><span>✳</span><p>Данные компаний синтетические; реальные банковские операции не выполняются.</p></div>
             </div>
             <div className="preview-card" data-reveal aria-label="Этапы работы в кабинете">
               <div className="preview-card-top"><span>ЛИЧНЫЙ КАБИНЕТ</span><span className="preview-card-mark">а.</span></div>
               <ol>
-                <li><span>01</span><div><strong>Войдите в кабинет</strong><small>Подтвердите номер телефона.</small></div><b aria-hidden="true">↗</b></li>
+                <li><span>01</span><div><strong>Войдите в кабинет</strong><small>Выберите компанию или войдите по номеру.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>02</span><div><strong>Подберите вариант</strong><small>Укажите задачу и параметры финансирования.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Черновик, документы и история проверки.</small></div><b aria-hidden="true">↗</b></li>
               </ol>
@@ -192,9 +192,9 @@ function LandingPage() {
           <div className="container faq-grid">
             <div data-reveal><span className="eyebrow">06 / Без мелкого шрифта</span><h2 id="faq-title">Важное —<br /><span className="marker">сразу понятно.</span></h2></div>
             <div className="faq-list" data-reveal>
-              <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Это прототип для хакатона на синтетических данных. Заявки сохраняются в сервисе проекта; реальных банковских операций нет.</p></details>
+              <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Сценарий работает на синтетических данных: заявки сохраняются в сервисе проекта, реальные банковские операции не выполняются.</p></details>
               <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор предлагает тип продукта. После отправки заявки система выполняет проверки, а финальное кредитное решение пока не реализовано.</p></details>
-              <details><summary>Нужен ли счёт в Альфа-Банке до заявки?<span aria-hidden="true">+</span></summary><p>Нет. По опубликованным условиям банка счёт можно открыть после одобрения заявки; для выдачи денег он понадобится. В этом прототипе оба пути показаны на синтетических компаниях.</p></details>
+              <details><summary>Нужен ли счёт в Альфа-Банке до заявки?<span aria-hidden="true">+</span></summary><p>Нет. По опубликованным условиям банка счёт можно открыть после одобрения заявки; для выдачи денег он понадобится. Здесь оба пути показаны на синтетических компаниях.</p></details>
               <details><summary>Что нужно для отправки?<span aria-hidden="true">+</span></summary><p>Укажите цель, сумму, срок, выручку и расходы. Если счёт в другом банке и нужен оборотный кредит, приложите выписку для подтверждения оборотов. Другие требования кабинет покажет перед отправкой.</p></details>
               <details><summary>Почему кредитных продуктов два?<span aria-hidden="true">+</span></summary><p>В первом релизе показаны оборотные средства и инвестиционный кредит. Другую задачу можно описать и сохранить в черновике; для отправки заявки пока нужно выбрать поддерживаемую цель.</p></details>
             </div>
@@ -206,7 +206,7 @@ function LandingPage() {
         </section>
       </main>
 
-      <footer className="site-footer"><div className="container footer-inner"><div className="footer-brand"><span className="brand-mark">а<span>.</span></span><span>Умный кредитный кабинет<br /><small>Проект для хакатона, 2026</small></span></div><a href="#top">Наверх ↑</a><p>Прототип на синтетических данных. Не является банковским предложением.</p></div></footer>
+      <footer className="site-footer"><div className="container footer-inner"><div className="footer-brand"><span className="brand-mark">а<span>.</span></span><span>Умный кредитный кабинет<br /><small>Проект для хакатона, 2026</small></span></div><a href="#top">Наверх ↑</a><p>Синтетические данные. Не является банковским предложением.</p></div></footer>
     </div>
   );
 }
@@ -234,7 +234,7 @@ function CabinetPage() {
         </div>
         <h2 className="visually-hidden">Работа с заявками</h2>
         <CreditCabinet />
-        <p className="cabinet-page-note">Сведения компаний учебные. Прототип не выполняет реальные банковские операции.</p>
+        <p className="cabinet-page-note">Данные компаний синтетические. Реальные банковские операции не выполняются.</p>
       </main>
     </div>
   );

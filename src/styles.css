@@ -530,11 +530,21 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) { display: block; width: min(100%, 1510px); padding-top: 25px; padding-bottom: 24px; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-intro { display: none; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-note { color: #69777e; }
-.cabinet-page:has(.credit-cabinet-conversation) { color: #e8f7ef; background: radial-gradient(circle at 82% 16%, #173f3d 0, #101d20 46%, #0b1518 100%); }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-header { border-bottom-color: #274144; background: #101c1e; }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link { border-color: #3b5759; color: #e6f8ef; background: #183032; }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link:hover { border-color: #7ab7a4; background: #214143; }
-.cabinet-page-main:has(.credit-cabinet-conversation) .cabinet-page-note { color: #a8c4b8; }
+.cabinet-page:has(.credit-cabinet-conversation) { color: #f4f7fa; background: #030508; }
+.cabinet-page:has(.credit-cabinet-conversation)::before {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background-image: linear-gradient(rgba(122, 167, 186, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(122, 167, 186, .055) 1px, transparent 1px), radial-gradient(circle at 86% 28%, rgba(9, 116, 149, .2), transparent 47%);
+  background-size: 72px 72px, 72px 72px, auto;
+  background-position: 0 0, 0 0, center;
+}
+.cabinet-page:has(.credit-cabinet-conversation)::after { right: 19%; bottom: -49%; left: auto; background: radial-gradient(circle, rgba(228, 37, 53, .13), transparent 64%); }
+.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-header { border-bottom-color: rgba(255, 255, 255, .09); background: rgba(3, 5, 8, .68); }
+.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link { border-color: rgba(255, 255, 255, .2); color: #e8f1f3; background: rgba(34, 41, 49, .64); }
+.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link:hover { border-color: rgba(140, 235, 242, .62); background: rgba(34, 41, 49, .86); }
+.cabinet-page-main:has(.credit-cabinet-conversation) .cabinet-page-note { color: #7e8994; }
 .cabinet-page-note { grid-column: 1 / -1; margin: 23px 0 0; color: #8c9da5; font-size: 11px; line-height: 1.5; }
 
 /* Motion only where the user's preference allows it */
