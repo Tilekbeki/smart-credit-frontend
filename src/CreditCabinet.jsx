@@ -59,6 +59,27 @@ const payloadFromForm = (form) => ({
   monthlyExpensesRub: form.monthlyExpensesRub === '' ? null : Number(form.monthlyExpensesRub),
 });
 const numericFields = ['requestedAmountRub', 'termMonths', 'monthlyRevenueRub', 'monthlyExpensesRub'];
+const normalizePhone = (value) => {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) return digits;
+  if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) return digits.slice(1);
+  return null;
+};
+const selectedLandingPurpose = () => {
+  const value = new URLSearchParams(window.location.search).get('purpose');
+  return GOALS.some(([id]) => id === value && id !== 'other') ? value : null;
+};
+const initialFormAfterSignIn = (company, products) => {
+  const form = initialForm(company);
+  const purpose = selectedLandingPurpose();
+  if (!purpose) return form;
+  form.purpose = purpose;
+  const preferredProductId = purpose === 'equipment' ? 'investment' : purpose === 'stock' ? 'turnover' : null;
+  if (products.some((product) => product.id === preferredProductId && product.purposes?.includes(purpose))) {
+    form.productId = preferredProductId;
+  }
+  return form;
+};
 
 function validateForm(form, { forRecommendation = false } = {}) {
   for (const field of numericFields) {
@@ -85,7 +106,8 @@ function LoadingCard({ title, detail }) {
 
 export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
-  const [authStage, setAuthStage] = useState('profiles');
+  const [authStage, setAuthStage] = useState('phone');
+  const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
   const [code, setCode] = useState('');
@@ -128,7 +150,14 @@ export default function CreditCabinet() {
       setCompany(null);
       setSelected(null);
       setApplications([]);
-      setAuthStage('profiles');
+      setApplicationsTotal(0);
+      setDocuments([]);
+      setTimeline([]);
+      setChosenProfile(null);
+      setOtpRequest(null);
+      setCode('');
+      setPhone('');
+      setAuthStage('phone');
       setScreen('new');
       setBusy('');
       setError('Сессия истекла. Войдите снова.');
@@ -179,7 +208,7 @@ export default function CreditCabinet() {
     return () => { active = false; window.clearInterval(timer); };
   }, [selected?.applicationId, selected?.status, loadApplications]);
 
-  const requestCode = async (profile) => {
+  const requestCode = async (profile, { resend = false } = {}) => {
     clearMessages();
     setBusy('otp-request');
     try {
@@ -188,14 +217,37 @@ export default function CreditCabinet() {
       setOtpRequest(request);
       setCode('');
       setAuthStage('code');
-    } catch (failure) { reportError(failure); }
+      if (resend) setNotice('Запрос кода обновлён. Предыдущий код больше не действует.');
+    } catch (failure) {
+      setOtpRequest(null);
+      setCode('');
+      setAuthStage('phone');
+      reportError(failure, 'Не удалось запросить код. Попробуйте ещё раз.');
+    }
     finally { setBusy(''); }
+  };
+
+  const submitPhone = (event) => {
+    event.preventDefault();
+    clearMessages();
+    const normalized = normalizePhone(phone);
+    if (!normalized) {
+      setError('Введите номер телефона в формате +7 999 000-00-00.');
+      return;
+    }
+    const profile = profiles.find((item) => item.role === 'CLIENT' && normalizePhone(item.phone) === normalized);
+    if (!profile) {
+      setError('Этот номер не найден среди доступных профилей. Проверьте ввод или выберите номер ниже.');
+      return;
+    }
+    requestCode(profile);
   };
 
   const verifyCode = async (event) => {
     event.preventDefault();
     clearMessages();
     if (!code.trim()) { setError('Введите код доступа.'); return; }
+    if (!otpRequest?.otpRequestId) { setAuthStage('phone'); setError('Запрос кода не найден. Получите новый код.'); return; }
     setBusy('otp-verify');
     let verified = false;
     try {
@@ -203,7 +255,8 @@ export default function CreditCabinet() {
       verified = true;
       if (session.role !== 'CLIENT' || !session.companyId) {
         setError('Этот кабинет доступен предпринимателям.');
-        setAuthStage('profiles');
+        setAuthStage('phone');
+        setOtpRequest(null);
         return;
       }
       api.setAccessToken(session.accessToken);
@@ -216,18 +269,33 @@ export default function CreditCabinet() {
       setProducts(productList.items || []);
       setApplications(page.items || []);
       setApplicationsTotal(page.total || 0);
-      setForm(initialForm(currentCompany));
+      setForm(initialFormAfterSignIn(currentCompany, productList.items || []));
       setSelected(null);
       setRecommendations(null);
-      setScreen('new');
+      setScreen(selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
       setAuthStage('ready');
+      setOtpRequest(null);
       setCode('');
     } catch (failure) {
       if (verified) {
         api.setAccessToken(null);
-        setAuthStage('profiles');
+        setAuthStage('phone');
+        setOtpRequest(null);
+        setCode('');
+        if (failure.status !== 401) reportError(failure, 'Не удалось открыть кабинет. Войдите ещё раз.');
+      } else if (['otp_expired', 'otp_invalidated', 'otp_attempts_exceeded', 'otp_used'].includes(failure?.code)) {
+        setOtpRequest(null);
+        setCode('');
+        setAuthStage('phone');
+        setError(failure.code === 'otp_expired' ? 'Срок действия кода истёк. Запросите новый код.'
+          : failure.code === 'otp_attempts_exceeded' ? 'Число попыток исчерпано. Запросите новый код.'
+            : 'Этот код больше не действует. Запросите новый код.');
+      } else if (failure?.code === 'invalid_otp') {
+        setCode('');
+        setError('Неверный код. Проверьте его и попробуйте снова.');
+      } else {
+        reportError(failure, 'Не удалось проверить код. Попробуйте ещё раз.');
       }
-      if (failure.status !== 401) reportError(failure, 'Не удалось войти.');
     } finally { setBusy(''); }
   };
 
@@ -238,12 +306,15 @@ export default function CreditCabinet() {
     setSelected(null);
     setApplications([]);
     setApplicationsTotal(0);
+    setDocuments([]);
+    setTimeline([]);
     setRecommendations(null);
-    setAuthStage('profiles');
+    setAuthStage('phone');
     setScreen('new');
     setChosenProfile(null);
     setOtpRequest(null);
     setCode('');
+    setPhone('');
     clearMessages();
   };
 
@@ -419,30 +490,33 @@ export default function CreditCabinet() {
 
   if (authStage !== 'ready') return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
-    {authStage === 'profiles' ? <>
-      <h3>Выберите компанию</h3>
-      <p className="cabinet-lede">Откройте профиль предпринимателя, чтобы посмотреть его заявки и подобрать финансирование.</p>
+    {authStage === 'phone' ? <>
+      <h3>Войдите по номеру телефона</h3>
+      <p className="cabinet-lede">Продолжите работу с заявкой в личном кабинете. Здесь сохраняются черновики, документы и статусы заявок.</p>
+      <form className="cabinet-phone-form" onSubmit={submitPhone}>
+        <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
+        <Button view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
+      </form>
       {busy === 'profiles' && <LoadingCard title="Загружаем профили" detail="Подключаемся к сервису." />}
-      <div className="cabinet-profiles">
-        {profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <button type="button" className="cabinet-profile" key={profile.id} onClick={() => requestCode(profile)} disabled={Boolean(busy)}>
-          <span className="cabinet-profile-icon" aria-hidden="true">↗</span>
-          <span><strong>{profile.companyName}</strong><small>{profile.name}</small></span>
-          <span aria-hidden="true">→</span>
+      {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-sample-phones"><strong>Номера для проверки</strong><p>Выберите номер, чтобы заполнить поле. Затем запросите код.</p><div className="cabinet-sample-list">
+        {profiles.filter((profile) => profile.role === 'CLIENT').map((profile) => <button type="button" className="cabinet-sample-phone" key={profile.id} onClick={() => { setPhone(profile.phone); setChosenProfile(null); clearMessages(); }} disabled={Boolean(busy)}>
+          <span>{profile.phone}</span><small>{profile.companyName}</small>
         </button>)}
-      </div>
+      </div></div>}
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">Профили и сведения компаний учебные. Действия доступны только внутри этого проекта.</p>
+      <p className="cabinet-fineprint">Вход сейчас доступен для тестовых номеров из списка. Автоматическая отправка SMS не подключена; для входа нужен код тестового окружения.</p>
     </> : <>
       <h3>Подтвердите вход</h3>
-      <p className="cabinet-lede">Профиль: <strong>{chosenProfile?.companyName}</strong>. Код доступа для {otpRequest?.maskedPhone}.</p>
+      <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
       <form onSubmit={verifyCode} className="cabinet-code-form">
-        <Input label="Код доступа" type="password" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(_, data) => { setCode(data?.value ?? ''); clearMessages(); }} />
+        <Input className="cabinet-auth-input" label="Код доступа" type="password" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(_, data) => { setCode(data?.value ?? ''); clearMessages(); }} />
         <ErrorNotice error={error} details={details} />
         <Button view="primary" type="submit" disabled={Boolean(busy)}>{busy === 'otp-verify' ? 'Проверяем код…' : 'Войти в кабинет'}</Button>
       </form>
-      <button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('profiles'); setOtpRequest(null); clearMessages(); }}>Выбрать другой профиль</button>
-      <p className="cabinet-fineprint">В этом сценарии сообщение на телефон не отправляется. Код выдаётся отдельно.</p>
+      {notice && <p className="cabinet-notice" role="status">{notice}</p>}
+      <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button></div>
+      <p className="cabinet-fineprint">Автоматическая отправка SMS пока не подключена. Используйте код тестового окружения; он действует 5 минут.</p>
     </>}
   </div>;
 
@@ -458,7 +532,7 @@ export default function CreditCabinet() {
     {busy === 'opening' && <LoadingCard title="Открываем заявку" detail="Загружаем актуальные данные и историю." />}
 
     {screen === 'list' && busy !== 'opening' && <div className="cabinet-list">
-      <div className="cabinet-section-head"><h4>Ваши заявки</h4><Button view="secondary" onClick={beginNew}>Новая заявка +</Button></div>
+      <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew}>Новая заявка +</Button></div>
       {applications.length === 0 ? <div className="cabinet-empty"><strong>Заявок пока нет</strong><p>Начните с цели и сохраните первый черновик.</p></div> : applications.map((application) => <button key={application.applicationId} type="button" className="cabinet-application-row" onClick={() => chooseApplication(application.applicationId)}>
         <span className="cabinet-row-icon" aria-hidden="true">↗</span>
         <span><strong>{application.productName || 'Черновик без продукта'}</strong><small>№ {shortId(application.applicationId)} · {formatDate(application.updatedAt)}</small></span>

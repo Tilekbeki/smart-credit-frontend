@@ -1,16 +1,10 @@
 import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Button } from '@alfalab/core-components/button';
 import heroArt from '../assets/alpha-cat-hero.png';
 import CreditCabinet from './CreditCabinet';
 import './styles.css';
 
-const scrollToSection = (id) => {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? 'instant' : 'smooth', block: 'start' });
-};
-
-function App() {
+function LandingPage() {
   useEffect(() => {
     const items = document.querySelectorAll('[data-reveal]');
     if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -42,9 +36,9 @@ function App() {
           <a href="#how">Как работает</a>
           <a href="#products">Продукты</a>
         </nav>
-        <Button view="primary" onClick={() => scrollToSection('demo')} className="header-cta">
+        <a href="/cabinet" className="landing-button header-cta">
           Начать подбор <span aria-hidden="true">↗</span>
-        </Button>
+        </a>
       </header>
 
       <main id="main">
@@ -57,9 +51,9 @@ function App() {
               <h1 id="hero-title">Деньги нужны бизнесу.<br /><em>Ясность</em> — вам.</h1>
               <p className="hero-lede">От задачи бизнеса до отправленной заявки: подберите продукт, сохраните черновик и следите за ходом проверки в одном кабинете.</p>
               <div className="hero-actions">
-                <Button view="primary" onClick={() => scrollToSection('demo')} className="cta-large">
+                <a href="/cabinet" className="landing-button cta-large">
                   Начать подбор <span aria-hidden="true">↗</span>
-                </Button>
+                </a>
                 <a className="text-link light-link" href="#how">Как это работает <span aria-hidden="true">↓</span></a>
               </div>
               <p className="hero-note">Сценарий работает на синтетических данных. Решение по кредиту и выдача средств пока готовятся.</p>
@@ -123,7 +117,7 @@ function App() {
                 <li><span>02</span><div><strong>Сравните варианты</strong><small>Посмотрите предварительный подбор двух продуктов.</small></div></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Сохраните черновик, загрузите документы и отслеживайте проверку.</small></div></li>
               </ol>
-              <Button view="secondary" colors="inverted" onClick={() => scrollToSection('demo')}>Начать подбор <span aria-hidden="true">↗</span></Button>
+              <a href="/cabinet" className="secondary-link">Начать подбор <span aria-hidden="true">↗</span></a>
             </div>
             <div className="dashboard-scene" data-reveal aria-hidden="true">
               <div className="scene-halo" />
@@ -149,12 +143,12 @@ function App() {
               <article className="product-card turnover-card" data-reveal>
                 <div className="product-top"><span>01 / На каждый день</span><span className="product-glyph">↺</span></div>
                 <div><h3>Оборотные<br />средства</h3><p>Закупка товаров, материалов и текущие расходы бизнеса.</p></div>
-                <button className="product-link" type="button" onClick={() => scrollToSection('demo')}>Подобрать вариант <span aria-hidden="true">↗</span></button>
+                <a className="product-link" href="/cabinet?purpose=stock">Подобрать вариант <span aria-hidden="true">↗</span></a>
               </article>
               <article className="product-card equipment-card" data-reveal>
                 <div className="product-top"><span>02 / На развитие</span><span className="product-glyph">↗</span></div>
                 <div><h3>Инвестиционный<br />кредит</h3><p>Покупка оборудования для следующего этапа роста.</p></div>
-                <button className="product-link" type="button" onClick={() => scrollToSection('demo')}>Подобрать вариант <span aria-hidden="true">↗</span></button>
+                <a className="product-link" href="/cabinet?purpose=equipment">Подобрать вариант <span aria-hidden="true">↗</span></a>
               </article>
             </div>
             <p className="fine-print">Подбор типа продукта не означает одобрение кредита и не является индивидуальным предложением.</p>
@@ -180,15 +174,24 @@ function App() {
           </div>
         </section>
 
-        <section className="demo section-pad" id="demo" aria-labelledby="demo-title">
-          <div className="container demo-layout">
-            <div className="demo-intro" data-reveal>
-              <span className="eyebrow eyebrow-light">05 / Попробуйте сами</span>
-              <h2 id="demo-title">Начните с цели.<br /><em>Остальное — яснее.</em></h2>
-              <p>Войдите через тестовый профиль, опишите задачу, сохраните черновик и отправьте заявку на проверку.</p>
-              <div className="demo-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
+        <section className="cabinet-preview section-pad" id="start" aria-labelledby="preview-title">
+          <div className="container preview-layout">
+            <div className="preview-intro" data-reveal>
+              <span className="eyebrow eyebrow-light">05 / Ваш следующий шаг</span>
+              <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
+              <p>Войдите по коду, подберите продукт, сохраните черновик и следите за заявкой на отдельной странице.</p>
+              <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
+              <div className="preview-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
             </div>
-            <CreditCabinet />
+            <div className="preview-card" data-reveal aria-label="Этапы работы в кабинете">
+              <div className="preview-card-top"><span>ЛИЧНЫЙ КАБИНЕТ</span><span className="preview-card-mark">а.</span></div>
+              <ol>
+                <li><span>01</span><div><strong>Подтвердите вход</strong><small>Введите номер и подтвердите код.</small></div><b aria-hidden="true">↗</b></li>
+                <li><span>02</span><div><strong>Подберите вариант</strong><small>Укажите задачу и параметры финансирования.</small></div><b aria-hidden="true">↗</b></li>
+                <li><span>03</span><div><strong>Следите за заявкой</strong><small>Черновик, документы и история проверки.</small></div><b aria-hidden="true">↗</b></li>
+              </ol>
+              <a href="/cabinet" className="preview-card-link">Открыть кабинет <span aria-hidden="true">→</span></a>
+            </div>
           </div>
         </section>
 
@@ -199,13 +202,13 @@ function App() {
               <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Это прототип для хакатона на синтетических данных. Заявки сохраняются в сервисе проекта; реальных банковских операций нет.</p></details>
               <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор предлагает тип продукта. После отправки заявки система выполняет проверки, а финальное кредитное решение пока не реализовано.</p></details>
               <details><summary>Что нужно для отправки?<span aria-hidden="true">+</span></summary><p>Укажите цель, сумму, срок, выручку и расходы. Для некоторых продуктов или профилей потребуется документ; кабинет покажет требования при отправке.</p></details>
-              <details><summary>Почему кредитных продуктов два?<span aria-hidden="true">+</span></summary><p>В первом релизе показаны оборотные средства и инвестиционный кредит. Задач финансирования больше; при выборе «Другая задача» продукт можно указать вручную.</p></details>
+              <details><summary>Почему кредитных продуктов два?<span aria-hidden="true">+</span></summary><p>В первом релизе показаны оборотные средства и инвестиционный кредит. Другую задачу можно описать и сохранить в черновике; для отправки заявки пока нужно выбрать поддерживаемую цель.</p></details>
             </div>
           </div>
         </section>
 
         <section className="closing" aria-labelledby="closing-title">
-          <div className="container closing-inner" data-reveal><span className="eyebrow eyebrow-light">Следующий шаг — за вами</span><h2 id="closing-title">Бизнесу — движение.<br /><em>Вам — ясность.</em></h2><p>Посмотрите, как начинается понятный кредитный путь.</p><Button view="primary" onClick={() => scrollToSection('demo')} className="cta-large">Начать подбор <span aria-hidden="true">↗</span></Button><div className="closing-orb" aria-hidden="true">а.</div></div>
+          <div className="container closing-inner" data-reveal><span className="eyebrow eyebrow-light">Следующий шаг — за вами</span><h2 id="closing-title">Бизнесу — движение.<br /><em>Вам — ясность.</em></h2><p>Посмотрите, как начинается понятный кредитный путь.</p><a href="/cabinet" className="landing-button cta-large">Начать подбор <span aria-hidden="true">↗</span></a><div className="closing-orb" aria-hidden="true">а.</div></div>
         </section>
       </main>
 
@@ -214,4 +217,34 @@ function App() {
   );
 }
 
-createRoot(document.getElementById('root')).render(<App />);
+function CabinetPage() {
+  useEffect(() => {
+    document.title = 'Личный кабинет | Умный кредитный кабинет';
+  }, []);
+
+  return (
+    <div className="cabinet-page">
+      <a className="skip-link" href="#main">Перейти к содержимому</a>
+      <header className="cabinet-page-header">
+        <a className="brand" href="/" aria-label="Умный кредитный кабинет — на главную">
+          <span className="brand-mark">а<span>.</span></span>
+          <span className="brand-name">умный кредитный<br />кабинет</span>
+        </a>
+        <a className="cabinet-home-link" href="/">← На главную</a>
+      </header>
+      <main className="cabinet-page-main container" id="main">
+        <div className="cabinet-page-intro">
+          <span className="eyebrow eyebrow-light"><span className="eyebrow-dot" /> Личный кабинет предпринимателя</span>
+          <h1>Кредитный путь<br /><em>под вашу задачу.</em></h1>
+          <p>Подбирайте продукт, продолжайте черновики и следите за статусом заявок в одном месте.</p>
+        </div>
+        <h2 className="visually-hidden">Работа с заявками</h2>
+        <CreditCabinet />
+        <p className="cabinet-page-note">Сведения компаний учебные. Прототип не выполняет реальные банковские операции.</p>
+      </main>
+    </div>
+  );
+}
+
+const path = window.location.pathname.replace(/\/+$/, '') || '/';
+createRoot(document.getElementById('root')).render(path === '/cabinet' ? <CabinetPage /> : <LandingPage />);
