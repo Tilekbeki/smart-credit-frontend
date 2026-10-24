@@ -179,14 +179,14 @@ function LandingPage() {
             <div className="preview-intro" data-reveal>
               <span className="eyebrow eyebrow-light">05 / Ваш следующий шаг</span>
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
-              <p>Войдите по коду, подберите продукт, сохраните черновик и следите за заявкой на отдельной странице.</p>
+              <p>Выберите учебную компанию, подберите продукт, сохраните черновик и следите за заявкой на отдельной странице.</p>
               <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
               <div className="preview-annotation"><span>✳</span><p>Компании и данные здесь синтетические. Это прототип без реальных банковских операций.</p></div>
             </div>
             <div className="preview-card" data-reveal aria-label="Этапы работы в кабинете">
               <div className="preview-card-top"><span>ЛИЧНЫЙ КАБИНЕТ</span><span className="preview-card-mark">а.</span></div>
               <ol>
-                <li><span>01</span><div><strong>Подтвердите вход</strong><small>Введите номер и подтвердите код.</small></div><b aria-hidden="true">↗</b></li>
+                <li><span>01</span><div><strong>Выберите компанию</strong><small>Откройте кабинет с данными примера.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>02</span><div><strong>Подберите вариант</strong><small>Укажите задачу и параметры финансирования.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Черновик, документы и история проверки.</small></div><b aria-hidden="true">↗</b></li>
               </ol>

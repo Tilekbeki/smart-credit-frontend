@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
 import * as api from './api';
+import { getJourneyStage, getNextAction, getSubmitChecklist } from './journey';
 import './cabinet.css';
 
 const GOALS = [
@@ -65,6 +66,8 @@ const normalizePhone = (value) => {
   if (digits.length === 11 && (digits.startsWith('7') || digits.startsWith('8'))) return digits.slice(1);
   return null;
 };
+// This code is only for the local, synthetic company flow. It is not a secret or a production login method.
+const QUICK_ACCESS_CODE = '1221';
 const selectedLandingPurpose = () => {
   const value = new URLSearchParams(window.location.search).get('purpose');
   return GOALS.some(([id]) => id === value && id !== 'other') ? value : null;
@@ -104,9 +107,27 @@ function LoadingCard({ title, detail }) {
   return <div className="cabinet-loading" role="status" aria-live="polite"><span className="cabinet-spinner" aria-hidden="true" /><strong>{title}</strong><p>{detail}</p></div>;
 }
 
+function JourneyProgress({ stage }) {
+  return <section className="cabinet-journey" aria-label="Этапы заявки">
+    <div className="cabinet-journey-heading"><span>ТЕКУЩИЙ ЭТАП</span><strong>{stage.title}</strong></div>
+    <ol>{stage.steps.map((step, index) => <li key={step.id} className={`is-${step.state}`} aria-current={step.state === 'current' ? 'step' : undefined}><span aria-hidden="true">{step.state === 'done' ? '✓' : index + 1}</span><small>{step.label}</small></li>)}</ol>
+    <p>{stage.description}</p>
+  </section>;
+}
+
+function SubmitChecklist({ checklist }) {
+  const done = checklist.items.filter((item) => item.state === 'done').length;
+  const conditional = checklist.items.filter((item) => item.state === 'conditional').length;
+  return <section className="cabinet-checklist" aria-label="Проверка перед отправкой">
+    <div className="cabinet-section-head"><div><span>ПЕРЕД ОТПРАВКОЙ</span><h4>Что уже готово</h4></div><small>{done} готово{conditional > 0 ? ` · ${conditional} по запросу` : ''}</small></div>
+    <ul>{checklist.items.map((item) => <li key={item.id} className={`is-${item.state}`}><span className="cabinet-check-icon" aria-hidden="true">{item.state === 'done' ? '✓' : item.state === 'conditional' ? '?' : '•'}</span><div><strong>{item.label}</strong>{item.message && <small>{item.message}</small>}</div></li>)}</ul>
+    <p>Это предварительная проверка. Окончательные требования к продукту и документам проверит сервис при отправке.</p>
+  </section>;
+}
+
 export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
-  const [authStage, setAuthStage] = useState('phone');
+  const [authStage, setAuthStage] = useState('choose');
   const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
@@ -120,6 +141,7 @@ export default function CreditCabinet() {
   const [timeline, setTimeline] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [form, setForm] = useState(initialForm(null));
+  const [newFormBaseline, setNewFormBaseline] = useState(initialForm(null));
   const [recommendations, setRecommendations] = useState(null);
   const [screen, setScreen] = useState('new');
   const [documentType, setDocumentType] = useState('BANK_STATEMENT');
@@ -128,12 +150,18 @@ export default function CreditCabinet() {
   const [error, setError] = useState('');
   const [details, setDetails] = useState([]);
   const [notice, setNotice] = useState('');
+  const [conflictedForm, setConflictedForm] = useState(null);
+  const documentsRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const formRef = useRef(null);
+  const submitRef = useRef(null);
 
   const reportError = (failure, fallback = 'Не удалось выполнить действие.') => {
     setError(failure?.message || fallback);
     setDetails(Array.isArray(failure?.details) ? failure.details : []);
   };
   const clearMessages = () => { setError(''); setDetails([]); setNotice(''); };
+  const fieldError = (field) => details.find((item) => item.field === field)?.message;
 
   useEffect(() => {
     let active = true;
@@ -157,10 +185,11 @@ export default function CreditCabinet() {
       setOtpRequest(null);
       setCode('');
       setPhone('');
-      setAuthStage('phone');
+      setAuthStage('choose');
       setScreen('new');
+      setConflictedForm(null);
       setBusy('');
-      setError('Сессия истекла. Войдите снова.');
+      setError('Сессия истекла. Выберите компанию, чтобы продолжить.');
       setDetails([]);
     });
     return () => api.setUnauthorizedHandler(null);
@@ -243,6 +272,58 @@ export default function CreditCabinet() {
     requestCode(profile);
   };
 
+  const completeSignIn = async (session) => {
+    if (session.role !== 'CLIENT' || !session.companyId) {
+      throw new api.ApiError('Этот кабинет доступен предпринимателям.', { code: 'invalid_role' });
+    }
+    api.setAccessToken(session.accessToken);
+    try {
+      const [currentUser, currentCompany, productList, page] = await Promise.all([
+        api.getMe(), api.getCompany(session.companyId), api.getCreditProducts(),
+        api.listApplications({ limit: 20, offset: 0 }),
+      ]);
+      setUser(currentUser);
+      setCompany(currentCompany);
+      setProducts(productList.items || []);
+      setApplications(page.items || []);
+      setApplicationsTotal(page.total || 0);
+      const startingForm = initialFormAfterSignIn(currentCompany, productList.items || []);
+      setForm(startingForm);
+      setNewFormBaseline(startingForm);
+      setSelected(null);
+      setRecommendations(null);
+      setScreen(selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
+      setConflictedForm(null);
+      setAuthStage('ready');
+      setOtpRequest(null);
+      setCode('');
+    } catch (failure) {
+      api.setAccessToken(null);
+      throw failure;
+    }
+  };
+
+  const continueAsCompany = async (profile) => {
+    clearMessages();
+    setChosenProfile(profile);
+    setBusy('quick-sign-in');
+    try {
+      const request = await api.requestOtp(profile.id);
+      const session = await api.verifyOtp(request.otpRequestId, QUICK_ACCESS_CODE);
+      await completeSignIn(session);
+    } catch (failure) {
+      api.setAccessToken(null);
+      setError(failure?.code === 'network_error'
+        ? 'Нет связи с сервисом. Проверьте подключение и попробуйте снова.'
+        : failure?.code === 'invalid_otp'
+          ? 'Быстрый вход недоступен: проверьте настройки тестового окружения или войдите по номеру.'
+          : 'Не удалось открыть кабинет компании. Повторите попытку или войдите по номеру.');
+      setDetails([]);
+    } finally {
+      setBusy('');
+    }
+  };
+
   const verifyCode = async (event) => {
     event.preventDefault();
     clearMessages();
@@ -253,29 +334,7 @@ export default function CreditCabinet() {
     try {
       const session = await api.verifyOtp(otpRequest.otpRequestId, code.trim());
       verified = true;
-      if (session.role !== 'CLIENT' || !session.companyId) {
-        setError('Этот кабинет доступен предпринимателям.');
-        setAuthStage('phone');
-        setOtpRequest(null);
-        return;
-      }
-      api.setAccessToken(session.accessToken);
-      const [currentUser, currentCompany, productList, page] = await Promise.all([
-        api.getMe(), api.getCompany(session.companyId), api.getCreditProducts(),
-        api.listApplications({ limit: 20, offset: 0 }),
-      ]);
-      setUser(currentUser);
-      setCompany(currentCompany);
-      setProducts(productList.items || []);
-      setApplications(page.items || []);
-      setApplicationsTotal(page.total || 0);
-      setForm(initialFormAfterSignIn(currentCompany, productList.items || []));
-      setSelected(null);
-      setRecommendations(null);
-      setScreen(selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
-      setAuthStage('ready');
-      setOtpRequest(null);
-      setCode('');
+      await completeSignIn(session);
     } catch (failure) {
       if (verified) {
         api.setAccessToken(null);
@@ -300,6 +359,7 @@ export default function CreditCabinet() {
   };
 
   const signOut = () => {
+    if (!confirmLeaveForm()) return;
     api.setAccessToken(null);
     setUser(null);
     setCompany(null);
@@ -309,27 +369,61 @@ export default function CreditCabinet() {
     setDocuments([]);
     setTimeline([]);
     setRecommendations(null);
-    setAuthStage('phone');
+    setAuthStage('choose');
     setScreen('new');
     setChosenProfile(null);
     setOtpRequest(null);
     setCode('');
     setPhone('');
+    setConflictedForm(null);
     clearMessages();
   };
 
   const beginNew = () => {
+    if (!confirmLeaveForm()) return;
     clearMessages();
     setSelected(null);
     setDocuments([]);
     setTimeline([]);
-    setForm(initialForm(company));
+    const startingForm = initialForm(company);
+    setForm(startingForm);
+    setNewFormBaseline(startingForm);
     setRecommendations(null);
     setFile(null);
+    setConflictedForm(null);
     setScreen('new');
   };
 
+  const goToList = () => {
+    if (!confirmLeaveForm()) return;
+    clearMessages();
+    setConflictedForm(null);
+    setScreen('list');
+  };
+
+  const scrollToNextAction = () => {
+    const target = nextAction?.kind === 'upload_document' ? documentsRef
+      : nextAction?.kind === 'review_and_submit' ? submitRef : formRef;
+    if (nextAction?.field?.startsWith('documents.')) setDocumentType(nextAction.field.split('.')[1]);
+    target.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'center',
+    });
+    window.requestAnimationFrame(() => {
+      if (nextAction?.kind === 'upload_document') fileInputRef.current?.focus();
+      else if (nextAction?.field === 'purpose') window.document.querySelector('input[name="purpose"]:checked')?.focus();
+      else if (nextAction?.field === 'productId') {
+        (window.document.querySelector('.cabinet-select-product:not(:disabled)')
+          || window.document.getElementById('cabinet-product-select')
+          || window.document.querySelector('.cabinet-adjustments button:not(:disabled)')
+          || window.document.querySelector('input[name="requestedAmountRub"]'))?.focus();
+      }
+      else if (nextAction?.field) window.document.querySelector(`input[name="${nextAction.field}"]`)?.focus();
+    });
+  };
+
   const chooseApplication = async (applicationId) => {
+    if (!confirmLeaveForm()) return;
     clearMessages();
     setBusy('opening');
     try {
@@ -337,6 +431,7 @@ export default function CreditCabinet() {
       setForm(formFromApplication(application));
       setRecommendations(null);
       setFile(null);
+      setConflictedForm(null);
       setDocumentType(application.productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
       setScreen('application');
     } catch (failure) { reportError(failure, 'Не удалось открыть заявку.'); }
@@ -354,11 +449,13 @@ export default function CreditCabinet() {
       return next;
     });
     if (field !== 'productId' && field !== 'purposeDescription') setRecommendations(null);
-    clearMessages();
+    setError('');
+    setNotice('');
+    setDetails((previous) => previous.filter((item) => item.field !== field && !(field === 'purpose' && item.field === 'productId')));
   };
 
   const calculate = async (event) => {
-    event.preventDefault();
+    event?.preventDefault();
     clearMessages();
     const validation = validateForm(form, { forRecommendation: true });
     if (validation) { setError(validation); return; }
@@ -372,7 +469,11 @@ export default function CreditCabinet() {
         monthlyExpensesRub: Number(form.monthlyExpensesRub),
       });
       setRecommendations(response);
-      setForm((previous) => ({ ...previous, productId: response.recommendedProductId || null }));
+      setForm((previous) => ({
+        ...previous,
+        productId: response.products?.some((item) => item.product.id === previous.productId && item.eligible)
+          ? previous.productId : null,
+      }));
     } catch (failure) { reportError(failure); }
     finally { setBusy(''); }
   };
@@ -391,7 +492,11 @@ export default function CreditCabinet() {
         monthlyExpensesRub: Number(next.monthlyExpensesRub),
       });
       setRecommendations(response);
-      setForm((previous) => ({ ...previous, productId: response.recommendedProductId || null }));
+      setForm((previous) => ({
+        ...previous,
+        productId: response.products?.some((item) => item.product.id === previous.productId && item.eligible)
+          ? previous.productId : null,
+      }));
     } catch (failure) { reportError(failure); }
     finally { setBusy(''); }
   };
@@ -403,31 +508,43 @@ export default function CreditCabinet() {
     setBusy('saving');
     try {
       const payload = payloadFromForm(form);
+      const wasNew = !selected;
       const saved = selected
         ? await api.updateApplication(selected.applicationId, { version: selected.version, ...payload })
         : await api.createApplication(payload);
-      const application = await refreshSelected(saved.applicationId);
-      await loadApplications(0);
-      setForm(formFromApplication(application));
-      setDocumentType(application.productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
+      setSelected(saved);
+      setApplications((previous) => [saved, ...previous.filter((item) => item.applicationId !== saved.applicationId)]);
+      if (wasNew) { setApplicationsTotal((previous) => previous + 1); setDocuments([]); setTimeline([]); }
+      setForm(formFromApplication(saved));
+      setDocumentType(saved.productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
       setScreen('application');
-      setNotice(selected ? 'Изменения сохранены.' : 'Черновик сохранён. К нему можно вернуться позже.');
+      setConflictedForm(null);
+      setNotice(wasNew ? 'Черновик сохранён. К нему можно вернуться позже.' : 'Изменения сохранены.');
+      try {
+        const application = await refreshSelected(saved.applicationId);
+        setForm(formFromApplication(application));
+        await loadApplications(0);
+      } catch (refreshError) {
+        setNotice('Черновик сохранён. Свежий список пока недоступен; откройте его позже.');
+      }
     } catch (failure) {
       if (failure?.error === 'version_conflict' || failure?.code === 'version_conflict') {
+        const localForm = { ...form };
         try {
           const latest = await refreshSelected(selected.applicationId);
+          setConflictedForm(localForm);
           setForm(formFromApplication(latest));
           await loadApplications(0);
-          setError('Черновик изменился в другом окне. Загружена свежая версия; проверьте данные и сохраните снова.');
-        } catch (reloadError) { reportError(reloadError); }
+          setError('Черновик изменился в другом окне. Мы сохранили ваш ввод на этой странице: сравните его с новой версией и восстановите, если нужно.');
+        } catch (reloadError) { setError('Черновик изменился в другом окне. Ваш ввод остался на странице, но свежую версию загрузить не удалось. Попробуйте открыть заявку позже.'); }
       } else reportError(failure);
     } finally { setBusy(''); }
   };
 
   const upload = async (event) => {
     event.preventDefault();
-    const formElement = event.currentTarget;
-    clearMessages();
+    setError('');
+    setNotice('');
     if (!file) { setError('Выберите файл.'); return; }
     if (file.size < 1 || file.size > 5242880 || !/\.(pdf|png|jpe?g)$/i.test(file.name)) {
       setError('Подойдёт непустой PDF, PNG или JPEG размером не более 5 МБ.');
@@ -435,12 +552,16 @@ export default function CreditCabinet() {
     }
     setBusy('uploading');
     try {
-      await api.uploadDocument(selected.applicationId, documentType, file);
-      const response = await api.listDocuments(selected.applicationId);
-      setDocuments(response.items || []);
+      const uploaded = await api.uploadDocument(selected.applicationId, documentType, file);
+      setDocuments((previous) => [...previous, uploaded]);
+      setDetails((previous) => previous.filter((item) => item.field !== `documents.${documentType}`));
       setFile(null);
-      formElement.reset();
+      if (fileInputRef.current) fileInputRef.current.value = '';
       setNotice('Документ загружен.');
+      try {
+        const response = await api.listDocuments(selected.applicationId);
+        setDocuments(response.items || []);
+      } catch (refreshError) { setNotice('Документ загружен. Обновить список файлов пока не удалось.'); }
     } catch (failure) { reportError(failure); }
     finally { setBusy(''); }
   };
@@ -466,11 +587,27 @@ export default function CreditCabinet() {
     clearMessages();
     setBusy('submitting');
     try {
-      await api.submitApplication(selected.applicationId);
-      await refreshSelected(selected.applicationId);
-      await loadApplications(0);
+      const submitted = await api.submitApplication(selected.applicationId);
+      setSelected((previous) => ({ ...previous, status: submitted.status, submittedAt: submitted.submittedAt }));
+      setApplications((previous) => previous.map((item) => item.applicationId === selected.applicationId
+        ? { ...item, status: submitted.status, submittedAt: submitted.submittedAt } : item));
+      setScreen('application');
       setNotice('Заявка отправлена. Статус обновляется автоматически.');
-    } catch (failure) { reportError(failure); }
+      try {
+        await refreshSelected(selected.applicationId);
+        await loadApplications(0);
+      } catch (refreshError) {
+        setNotice('Заявка отправлена. Обновить историю пока не удалось; проверьте её чуть позже.');
+      }
+    } catch (failure) {
+      reportError(failure);
+      if (failure?.details?.some((item) => item.field?.startsWith('documents.'))) {
+        window.requestAnimationFrame(() => {
+          documentsRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+          fileInputRef.current?.focus();
+        });
+      }
+    }
     finally { setBusy(''); }
   };
 
@@ -483,14 +620,51 @@ export default function CreditCabinet() {
   };
 
   const currentPayload = payloadFromForm(form);
-  const hasUnsavedChanges = selected?.status === 'draft' && numericFields.concat(['productId', 'purpose', 'purposeDescription'])
+  const editableFields = numericFields.concat(['productId', 'purpose', 'purposeDescription']);
+  const hasUnsavedChanges = screen === 'application' && selected?.status === 'draft' && editableFields
     .some((field) => currentPayload[field] !== selected[field]);
-  const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && selected.productId && selected.purpose !== 'other'
-    && numericFields.every((field) => selected[field] !== null);
+  const baselinePayload = payloadFromForm(newFormBaseline);
+  const hasNewChanges = screen === 'new' && editableFields.some((field) => currentPayload[field] !== baselinePayload[field]);
+  const confirmLeaveForm = () => !(hasUnsavedChanges || hasNewChanges || conflictedForm)
+    || window.confirm('Введённые изменения не сохранены. Покинуть эту форму?');
+  const selectedProduct = products.find((product) => product.id === selected?.productId) || null;
+  const formProduct = products.find((product) => product.id === form.productId) || null;
+  const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct);
+  const journeyStage = selected ? getJourneyStage(selected, timeline) : null;
+  const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct) : null;
+  const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
+  const draftToContinue = applications.filter((item) => item.status === 'draft')
+    .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
+
+  useEffect(() => {
+    if (authStage !== 'ready' || !(hasUnsavedChanges || hasNewChanges || conflictedForm)) return undefined;
+    const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warnBeforeLeave);
+    return () => window.removeEventListener('beforeunload', warnBeforeLeave);
+  }, [authStage, hasUnsavedChanges, hasNewChanges, conflictedForm]);
 
   if (authStage !== 'ready') return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
-    {authStage === 'phone' ? <>
+    {authStage === 'choose' ? <>
+      <h3>Выберите компанию</h3>
+      <p className="cabinet-lede">Откройте кабинет с данными примера, чтобы подобрать продукт и пройти путь заявки.</p>
+      {busy === 'profiles' && <LoadingCard title="Загружаем компании" detail="Подключаемся к сервису." />}
+      {profiles.some((profile) => profile.role === 'CLIENT') && <div className="cabinet-company-list">
+        {profiles.filter((profile) => profile.role === 'CLIENT').map((profile, index) => <article className="cabinet-company-card" key={profile.id}>
+          <div className="cabinet-company-card-top"><span className="cabinet-company-number">0{index + 1}</span><span>ДАННЫЕ ПРИМЕРА</span></div>
+          <h4>{profile.companyName}</h4>
+          <p>Изучите подбор, сохраните черновик и проверьте статус заявки.</p>
+          <Button view="primary" onClick={() => continueAsCompany(profile)} disabled={Boolean(busy)}>
+            {busy === 'quick-sign-in' && chosenProfile?.id === profile.id ? 'Открываем кабинет…' : 'Продолжить ↗'}
+          </Button>
+        </article>)}
+      </div>}
+      {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
+      {!profiles.some((profile) => profile.role === 'CLIENT') && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
+      <ErrorNotice error={error} details={details} />
+      <p className="cabinet-fineprint">Данные примера. SMS не отправляется; настоящие банковские операции здесь не выполняются.</p>
+      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('phone'); clearMessages(); }} disabled={Boolean(busy)}>Войти по номеру →</button>
+    </> : authStage === 'phone' ? <>
       <h3>Войдите по номеру телефона</h3>
       <p className="cabinet-lede">Продолжите работу с заявкой в личном кабинете. Здесь сохраняются черновики, документы и статусы заявок.</p>
       <form className="cabinet-phone-form" onSubmit={submitPhone}>
@@ -506,6 +680,7 @@ export default function CreditCabinet() {
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
       <p className="cabinet-fineprint">Вход сейчас доступен для тестовых номеров из списка. Автоматическая отправка SMS не подключена; для входа нужен код тестового окружения.</p>
+      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('choose'); setPhone(''); clearMessages(); }} disabled={Boolean(busy)}>← Выбрать компанию</button>
     </> : <>
       <h3>Подтвердите вход</h3>
       <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
@@ -517,23 +692,25 @@ export default function CreditCabinet() {
       {notice && <p className="cabinet-notice" role="status">{notice}</p>}
       <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button></div>
       <p className="cabinet-fineprint">Автоматическая отправка SMS пока не подключена. Используйте код тестового окружения; он действует 5 минут.</p>
+      <button className="cabinet-text-button cabinet-manual-entry" type="button" onClick={() => { setAuthStage('choose'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>← Выбрать компанию</button>
     </>}
   </div>;
 
   return <div className="credit-cabinet">
-    <div className="cabinet-eyebrow"><span>КАБИНЕТ ПРЕДПРИНИМАТЕЛЯ</span><button type="button" onClick={signOut}>Выйти ↗</button></div>
+    <div className="cabinet-eyebrow"><span>КАБИНЕТ ПРЕДПРИНИМАТЕЛЯ</span><button type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти ↗</button></div>
     <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div><span className="cabinet-account-mark" aria-hidden="true">а.</span></div>
     <div className="cabinet-tabs" role="navigation" aria-label="Разделы кабинета">
-      <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew}>Новая заявка</button>
-      <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={() => { clearMessages(); setScreen('list'); }}>Мои заявки <span>{applicationsTotal}</span></button>
+      <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew} disabled={Boolean(busy)}>Новая заявка</button>
+      <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={goToList} disabled={Boolean(busy)}>Мои заявки <span>{applicationsTotal}</span></button>
     </div>
     {error && <ErrorNotice error={error} details={details} />}
     {notice && <p className="cabinet-notice" role="status">{notice}</p>}
     {busy === 'opening' && <LoadingCard title="Открываем заявку" detail="Загружаем актуальные данные и историю." />}
 
     {screen === 'list' && busy !== 'opening' && <div className="cabinet-list">
-      <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew}>Новая заявка +</Button></div>
-      {applications.length === 0 ? <div className="cabinet-empty"><strong>Заявок пока нет</strong><p>Начните с цели и сохраните первый черновик.</p></div> : applications.map((application) => <button key={application.applicationId} type="button" className="cabinet-application-row" onClick={() => chooseApplication(application.applicationId)}>
+      <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Новая заявка +</Button></div>
+      {draftToContinue && <div className="cabinet-resume"><div><span>МОЖНО ПРОДОЛЖИТЬ</span><strong>{draftToContinue.productName || 'Черновик кредитной заявки'}</strong><p>Сохранён {formatDate(draftToContinue.updatedAt || draftToContinue.createdAt)}. Данные останутся в этой заявке до отправки.</p></div><Button view="primary" onClick={() => chooseApplication(draftToContinue.applicationId)} disabled={Boolean(busy)}>Продолжить заявку ↗</Button></div>}
+      {applications.length === 0 ? <div className="cabinet-empty"><strong>Заявок пока нет</strong><p>Начните с цели и сохраните первый черновик.</p></div> : applications.map((application) => <button key={application.applicationId} type="button" className="cabinet-application-row" onClick={() => chooseApplication(application.applicationId)} disabled={Boolean(busy)}>
         <span className="cabinet-row-icon" aria-hidden="true">↗</span>
         <span><strong>{application.productName || 'Черновик без продукта'}</strong><small>№ {shortId(application.applicationId)} · {formatDate(application.updatedAt)}</small></span>
         <span><b>{formatRub(application.requestedAmountRub)}</b><small className={`cabinet-status status-${application.status}`}>{STATUS_NAMES[application.status] || application.status}</small></span>
@@ -542,18 +719,20 @@ export default function CreditCabinet() {
     </div>}
 
     {(screen === 'new' || (screen === 'application' && selected?.status === 'draft')) && busy !== 'opening' && <div className="cabinet-workflow">
-      {selected && <div className="cabinet-draft-bar"><span>Черновик № {shortId(selected.applicationId)} · версия {selected.version}</span><button type="button" onClick={() => setScreen('list')}>К списку ↑</button></div>}
+      {selected && <div className="cabinet-draft-bar"><span>Черновик № {shortId(selected.applicationId)} · версия {selected.version}</span><button type="button" onClick={goToList} disabled={Boolean(busy)}>К списку ↑</button></div>}
+      {selected && journeyStage && <JourneyProgress stage={journeyStage} />}
+      {conflictedForm && <div className="cabinet-conflict" role="alert"><strong>Ваш ввод сохранён на этой странице</strong><p>С сервера загружена новая версия черновика. Восстановите свои значения, проверьте их и снова сохраните.</p><div><Button view="secondary" onClick={() => { setForm(conflictedForm); setConflictedForm(null); clearMessages(); setNotice('Ваш ввод восстановлен. Проверьте данные и сохраните изменения.'); }}>Восстановить мой ввод</Button><button type="button" className="cabinet-text-button" onClick={() => { setConflictedForm(null); clearMessages(); }}>Оставить версию сервера</button></div></div>}
       <h4>{selected ? 'Редактирование черновика' : 'Для чего нужны средства?'}</h4>
       <p className="cabinet-description">Опишите задачу и проверьте финансовые данные. Подбор покажет возможные варианты, а черновик можно сохранить и продолжить позже.</p>
-      <form onSubmit={calculate} className="cabinet-form">
-        <fieldset className="cabinet-goals"><legend>Цель финансирования</legend><div>{GOALS.map(([id, label]) => <label key={id} className={form.purpose === id ? 'selected' : ''}><input type="radio" name="purpose" checked={form.purpose === id} onChange={() => updateField('purpose', id)} /><span>{label}</span></label>)}</div></fieldset>
-        {form.purpose === 'other' && <label className="cabinet-textarea-label">Опишите задачу<textarea value={form.purposeDescription} maxLength={300} onChange={(event) => updateField('purposeDescription', event.target.value)} placeholder="Например, открыть ещё одну точку" /></label>}
+      <form onSubmit={calculate} className="cabinet-form" ref={formRef}>
+        <fieldset className="cabinet-goals" disabled={Boolean(busy)}><legend>Цель финансирования</legend><div>{GOALS.map(([id, label]) => <label key={id} className={form.purpose === id ? 'selected' : ''}><input type="radio" name="purpose" checked={form.purpose === id} onChange={() => updateField('purpose', id)} /><span>{label}</span></label>)}</div>{fieldError('purpose') && <small className="cabinet-inline-error" role="alert">{fieldError('purpose')}</small>}</fieldset>
+        {form.purpose === 'other' && <label className="cabinet-textarea-label">Опишите задачу<textarea value={form.purposeDescription} maxLength={300} disabled={Boolean(busy)} onChange={(event) => updateField('purposeDescription', event.target.value)} placeholder="Например, открыть ещё одну точку" /></label>}
         {form.purpose === 'other' && <p className="cabinet-limitation">Такую задачу можно сохранить в черновике. Для отправки пока выберите одну из пяти поддерживаемых целей.</p>}
         <div className="cabinet-input-grid">
-          <Input label="Сумма, ₽" type="number" min="1" value={form.requestedAmountRub} onChange={(_, data) => updateField('requestedAmountRub', data?.value ?? '')} />
-          <Input label="Срок, мес." type="number" min="1" max="120" value={form.termMonths} onChange={(_, data) => updateField('termMonths', data?.value ?? '')} />
-          <Input label="Выручка в месяц, ₽" type="number" min="0" value={form.monthlyRevenueRub} onChange={(_, data) => updateField('monthlyRevenueRub', data?.value ?? '')} />
-          <Input label="Расходы в месяц, ₽" type="number" min="0" value={form.monthlyExpensesRub} onChange={(_, data) => updateField('monthlyExpensesRub', data?.value ?? '')} />
+          <div><Input label="Сумма, ₽" name="requestedAmountRub" type="number" min="1" disabled={Boolean(busy)} value={form.requestedAmountRub} onChange={(_, data) => updateField('requestedAmountRub', data?.value ?? '')} />{fieldError('requestedAmountRub') && <small className="cabinet-inline-error" role="alert">{fieldError('requestedAmountRub')}</small>}</div>
+          <div><Input label="Срок, мес." name="termMonths" type="number" min="1" max="120" disabled={Boolean(busy)} value={form.termMonths} onChange={(_, data) => updateField('termMonths', data?.value ?? '')} />{fieldError('termMonths') && <small className="cabinet-inline-error" role="alert">{fieldError('termMonths')}</small>}</div>
+          <div><Input label="Выручка в месяц, ₽" name="monthlyRevenueRub" type="number" min="0" disabled={Boolean(busy)} value={form.monthlyRevenueRub} onChange={(_, data) => updateField('monthlyRevenueRub', data?.value ?? '')} />{fieldError('monthlyRevenueRub') && <small className="cabinet-inline-error" role="alert">{fieldError('monthlyRevenueRub')}</small>}</div>
+          <div><Input label="Расходы в месяц, ₽" name="monthlyExpensesRub" type="number" min="0" disabled={Boolean(busy)} value={form.monthlyExpensesRub} onChange={(_, data) => updateField('monthlyExpensesRub', data?.value ?? '')} />{fieldError('monthlyExpensesRub') && <small className="cabinet-inline-error" role="alert">{fieldError('monthlyExpensesRub')}</small>}</div>
         </div>
         <p className="cabinet-helper">Выручка и расходы подставлены из профиля компании. Измените их, если расчёт нужен с другими данными.</p>
         <Button view="secondary" type="submit" disabled={Boolean(busy)}>{busy === 'recommendations' ? 'Считаем варианты…' : 'Рассчитать варианты ↗'}</Button>
@@ -562,35 +741,43 @@ export default function CreditCabinet() {
       {recommendations && <section className="cabinet-recommendations" aria-label="Предварительный подбор">
         <div className="cabinet-section-head"><div><span>ПРЕДВАРИТЕЛЬНЫЙ ПОДБОР</span><h4>Что подходит сейчас</h4></div><span className="cabinet-budget">Бюджет платежа {formatRub(recommendations.paymentBudgetRub)} / мес.</span></div>
         <div className="cabinet-product-list">{recommendations.products.map((item) => {
-          const canSelect = item.matches.purpose && item.matches.amount && item.matches.term;
+          const canSelect = item.eligible === true;
           return <article key={item.product.id} className={`cabinet-product ${form.productId === item.product.id ? 'chosen' : ''}`}>
             <div className="cabinet-product-heading"><div><small>{item.product.id === recommendations.recommendedProductId ? 'РЕКОМЕНДУЕМ' : 'ВАРИАНТ'}</small><h5>{item.product.name}</h5></div><span>{item.product.annualRatePercent}%*</span></div>
             <div className="cabinet-product-metrics"><div><span>Платёж в месяц</span><strong>{formatRub(item.monthlyPaymentRub)}</strong></div><div><span>Предварительно доступно</span><strong>{formatRub(item.preliminaryAvailableAmountRub)}</strong></div></div>
             {item.reasons?.length > 0 && <ul className="cabinet-reasons">{item.reasons.map((reason, index) => <li key={index}>{reason}</li>)}</ul>}
             {item.limitations?.length > 0 && <ul className="cabinet-limitations">{item.limitations.map((reason, index) => <li key={index}>{reason}</li>)}</ul>}
             {item.adjustments?.length > 0 && <div className="cabinet-adjustments"><strong>Можно попробовать другие параметры:</strong>{item.adjustments.map((option, index) => <button type="button" key={index} onClick={() => applyAdjustment(option)} disabled={Boolean(busy)}>{formatRub(option.amountRub)} на {option.termMonths} мес. <span>↗</span></button>)}</div>}
-            <Button view={form.productId === item.product.id ? 'primary' : 'secondary'} type="button" disabled={!canSelect || Boolean(busy)} onClick={() => updateField('productId', item.product.id)}>{form.productId === item.product.id ? 'Выбрано' : 'Выбрать для заявки'}</Button>
+            <Button className="cabinet-select-product" view={form.productId === item.product.id ? 'primary' : 'secondary'} type="button" disabled={!canSelect || Boolean(busy)} onClick={() => updateField('productId', item.product.id)}>{form.productId === item.product.id ? 'Выбрано для заявки' : canSelect ? 'Выбрать для заявки' : 'Сейчас не подходит'}</Button>
           </article>;
         })}</div>
         <p className="cabinet-helper">* Ставка и платёж иллюстративные. Подбор не является решением по кредиту или офертой.</p>
       </section>}
 
-      {!recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select><small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
+      {!recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} disabled={Boolean(busy)} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>{fieldError('productId') && <small className="cabinet-inline-error" role="alert">{fieldError('productId')}</small>}<small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
+      {formProduct && <div className="cabinet-product-terms"><strong>Условия выбранного продукта</strong><span>Сумма: {formatRub(formProduct.minAmountRub)}–{formatRub(formProduct.maxAmountRub)}</span><span>Срок: {formProduct.minTermMonths}–{formProduct.maxTermMonths} мес.</span><span>Стаж бизнеса: от {formProduct.minBusinessAgeMonths} мес.</span></div>}
+      <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>
       <div className="cabinet-primary-actions"><Button view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>
 
-      {selected && <div className="cabinet-documents"><div className="cabinet-section-head"><div><span>ДОКУМЕНТЫ</span><h4>Файлы заявки</h4></div><small>PDF, PNG или JPEG · до 5 МБ</small></div>
-        <form className="cabinet-upload" onSubmit={upload}><label>Тип документа<select value={documentType} onChange={(event) => setDocumentType(event.target.value)}><option value="BANK_STATEMENT">Выписка по счёту</option><option value="EQUIPMENT_INVOICE">Счёт на оборудование</option></select></label><label>Файл<input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><Button view="secondary" type="submit" disabled={Boolean(busy) || !file}>{busy === 'uploading' ? 'Загружаем…' : 'Загрузить файл'}</Button></form>
+      {selected && <SubmitChecklist checklist={checklist} />}
+      {selected && nextAction && <div className="cabinet-next-action" aria-live="polite"><div><span>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div>{['complete_draft', 'upload_document', 'review_and_submit'].includes(nextAction.kind) && <Button view="secondary" onClick={scrollToNextAction}>Перейти ↗</Button>}</div>}
+
+      {selected && <div className="cabinet-documents" ref={documentsRef}><div className="cabinet-section-head"><div><span>ДОКУМЕНТЫ</span><h4>Файлы заявки</h4></div><small>PDF, PNG или JPEG · до 5 МБ</small></div>
+        <form className="cabinet-upload" onSubmit={upload}><label>Тип документа<select value={documentType} disabled={Boolean(busy)} onChange={(event) => setDocumentType(event.target.value)}><option value="BANK_STATEMENT">Выписка по счёту</option><option value="EQUIPMENT_INVOICE">Счёт на оборудование</option></select></label><label>Файл<input ref={fileInputRef} type="file" disabled={Boolean(busy)} accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onChange={(event) => setFile(event.target.files?.[0] || null)} /></label><Button view="secondary" type="submit" disabled={Boolean(busy) || !file}>{busy === 'uploading' ? 'Загружаем…' : 'Загрузить файл'}</Button></form>
+        {details.filter((item) => item.field?.startsWith('documents.')).map((item, index) => <p className="cabinet-inline-error" key={`${item.field}-${index}`} role="alert">{item.message}</p>)}
         <DocumentList documents={documents} download={download} busy={busy} />
       </div>}
 
-      {selected && <div className="cabinet-submit"><div><strong>Готовы отправить?</strong><p>После отправки черновик станет доступен для обработки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && !hasUnsavedChanges && <p>Для отправки нужны поддерживаемая цель, продукт, сумма, срок, выручка и расходы. Документы проверятся при отправке.</p>}</div><Button view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку ↗'}</Button></div>}
+      {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку ↗'}</Button></div>}
     </div>}
 
     {screen === 'application' && selected && selected.status !== 'draft' && busy !== 'opening' && <div className="cabinet-status-view">
-      <div className="cabinet-draft-bar"><span>Заявка № {shortId(selected.applicationId)}</span><button type="button" onClick={() => setScreen('list')}>К списку ↑</button></div>
+      <div className="cabinet-draft-bar"><span>Заявка № {shortId(selected.applicationId)}</span><button type="button" onClick={goToList} disabled={Boolean(busy)}>К списку ↑</button></div>
+      {journeyStage && <JourneyProgress stage={journeyStage} />}
       <span className={`cabinet-status status-${selected.status}`}>{STATUS_NAMES[selected.status] || selected.status}</span>
-      <h4>{selected.status === 'submitted' ? 'Заявка отправлена' : selected.status === 'processing' ? 'Проверка продолжается' : STATUS_NAMES[selected.status] || 'Статус заявки'}</h4>
-      <p className="cabinet-description">{selected.status === 'submitted' ? 'Заявка получена. Предварительные проверки начнутся автоматически.' : selected.status === 'processing' ? timeline.some((event) => event.eventType === 'SCORING_COMPLETED') ? 'Результат оценки сохранён. Ожидается кредитное решение.' : timeline.some((event) => event.eventType === 'PRECHECKS_COMPLETED') ? 'Предварительные проверки завершены. Заявка ожидает дальнейшей обработки.' : 'Идут предварительные проверки компании и финансовых данных.' : 'Текущий статус получен с сервера. Следующие действия появятся после завершения обработки.'}</p>
+      <h4>{journeyStage?.title || STATUS_NAMES[selected.status] || 'Статус заявки'}</h4>
+      <p className="cabinet-description">{journeyStage?.description}</p>
+      {nextAction && <div className="cabinet-next-action"><div><span>{nextAction.kind === 'wait' ? 'СЕЙЧАС ДЕЙСТВУЕТ БАНК' : 'СЛЕДУЮЩИЙ ШАГ'}</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div></div>}
       <div className="cabinet-summary"><div><span>Компания</span><strong>{company?.name}</strong></div><div><span>Продукт</span><strong>{selected.productName || '—'}</strong></div><div><span>Сумма</span><strong>{formatRub(selected.requestedAmountRub)}</strong></div><div><span>Срок</span><strong>{selected.termMonths ? `${selected.termMonths} мес.` : '—'}</strong></div><div><span>Отправлена</span><strong>{formatDate(selected.submittedAt)}</strong></div></div>
       {isProcessing(selected.status) && <div className="cabinet-processing-note" role="status"><span className="cabinet-spinner" aria-hidden="true" /><span>Статус обновляется каждые 5 секунд. Кредитное решение пока не опубликовано.</span></div>}
       <div className="cabinet-section-head"><h4>История заявки</h4><Button view="secondary" type="button" onClick={async () => { setBusy('refresh'); try { await refreshSelected(selected.applicationId); } catch (failure) { reportError(failure); } finally { setBusy(''); } }} disabled={Boolean(busy)}>{busy === 'refresh' ? 'Обновляем…' : 'Обновить'}</Button></div>
