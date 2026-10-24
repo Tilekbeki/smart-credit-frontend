@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
 import * as api from './api';
@@ -161,154 +161,9 @@ function SubmitChecklist({ checklist }) {
   </section>;
 }
 
-function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepIndex, customPurposeText, setCustomPurposeText, updateField, busy, onShowOffers, onSaveDraft, onManualEntry, onMyApplications, onSignOut, onSignIn, recommendations }) {
-  const [draftAnswer, setDraftAnswer] = useState('');
-  const [answerError, setAnswerError] = useState('');
-  const [typing, setTyping] = useState(true);
-  const threadRef = useRef(null);
-  const replyAreaRef = useRef(null);
-  const completeActionsRef = useRef(null);
-  const steps = [
-    { field: 'purpose', question: 'На что нужны деньги?' },
-    ...(form.purpose === 'other' ? [{ field: 'purposeDescription', question: 'Расскажите о задаче парой слов.' }] : []),
-    { field: 'requestedAmountRub', question: 'Какую сумму хотите привлечь?' },
-    { field: 'termMonths', question: 'На какой срок планируете кредит?' },
-    { field: 'monthlyRevenueRub', question: bankRelationship === 'alfa_account' && form.monthlyRevenueRub
-      ? `Выручка указана как ${formatRub(Number(form.monthlyRevenueRub))} в месяц. Верно?`
-      : 'Какая выручка бизнеса в среднем за месяц?' },
-    { field: 'monthlyExpensesRub', question: bankRelationship === 'alfa_account' && form.monthlyExpensesRub
-      ? `Расходы указаны как ${formatRub(Number(form.monthlyExpensesRub))} в месяц. Всё верно?`
-      : 'Сколько бизнес тратит в среднем за месяц?' },
-  ];
-  const currentStep = steps[stepIndex];
-  const complete = stepIndex >= steps.length;
-  const questionCount = steps.length - (customPurposeText ? 1 : 0);
-  const answeredSteps = steps.slice(0, stepIndex).filter((step) => !(customPurposeText && step.field === 'purposeDescription'));
-  let replyText = currentStep?.question || '';
-  if (complete) {
-    replyText = onSignIn
-      ? 'Спасибо! Я собрал ответы. Войдите по номеру, чтобы сохранить их в кабинете.'
-      : form.purpose === 'other'
-        ? 'Спасибо! Эту цель пока можно сохранить в черновике. Для автоматического подбора выберите одну из пяти поддерживаемых целей.'
-        : 'Спасибо, данные собраны. Сейчас можно посмотреть варианты и выбрать подходящий для заявки.';
-  }
-
-  useEffect(() => {
-    setDraftAnswer(currentStep?.field === 'purpose' ? '' : currentStep ? String(form[currentStep.field] ?? '') : '');
-    setAnswerError('');
-  }, [stepIndex, currentStep?.field]);
-
-  useEffect(() => {
-    if (!typing) return undefined;
-    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      ? 0 : Math.min(1600, 750 + replyText.length * 13);
-    const timer = window.setTimeout(() => setTyping(false), delay);
-    return () => window.clearTimeout(timer);
-  }, [typing, stepIndex, replyText]);
-
-  useLayoutEffect(() => {
-    if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
-  }, [stepIndex, typing, busy]);
-
-  useEffect(() => {
-    if (typing) return undefined;
-    const frame = window.requestAnimationFrame(() => {
-      const target = replyAreaRef.current?.querySelector('button, input')
-        || completeActionsRef.current?.querySelector('button');
-      target?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [typing, stepIndex]);
-
-  const answerLabel = (field) => {
-    if (field === 'purpose') return customPurposeText || GOALS.find(([id]) => id === form.purpose)?.[1] || '—';
-    if (field === 'purposeDescription') return form.purposeDescription || '—';
-    if (field === 'termMonths') return `${form.termMonths} мес.`;
-    return formatRub(Number(form[field]));
-  };
-
-  const answer = (rawValue) => {
-    if (!currentStep || busy || typing) return;
-    const value = String(rawValue).trim();
-    if (currentStep.field === 'purpose') {
-      if (!value) { setAnswerError('Выберите цель или напишите её своими словами.'); return; }
-      if (value.length > 300) { setAnswerError('Не больше 300 символов.'); return; }
-      const knownPurpose = GOALS.find(([id, label]) => id === value || label.toLocaleLowerCase('ru-RU') === value.toLocaleLowerCase('ru-RU'));
-      if (!knownPurpose) {
-        setCustomPurposeText(value);
-        updateField('purpose', 'other');
-        updateField('purposeDescription', value);
-        setAnswerError('');
-        setTyping(true);
-        setStepIndex((previous) => previous + 2);
-        return;
-      }
-      setCustomPurposeText('');
-      updateField('purpose', knownPurpose[0]);
-      setAnswerError('');
-      setTyping(true);
-      setStepIndex((previous) => previous + 1);
-      return;
-    }
-    if (currentStep.field === 'purposeDescription' && !value) {
-      setAnswerError('Коротко опишите задачу, чтобы сохранить её в черновике.');
-      return;
-    }
-    if (currentStep.field === 'purposeDescription' && value.length > 300) {
-      setAnswerError('Не больше 300 символов.');
-      return;
-    }
-    if (['requestedAmountRub', 'termMonths', 'monthlyRevenueRub', 'monthlyExpensesRub'].includes(currentStep.field)) {
-      const number = Number(value);
-      const minimum = ['requestedAmountRub', 'termMonths'].includes(currentStep.field) ? 1 : 0;
-      const maximum = currentStep.field === 'termMonths' ? 120 : 1000000000000;
-      if (!value || !/^\d+$/.test(value) || !Number.isSafeInteger(number) || number < minimum || number > maximum) {
-        setAnswerError(currentStep.field === 'termMonths' ? 'Укажите срок от 1 до 120 месяцев.' : 'Укажите целую сумму в рублях.');
-        return;
-      }
-    }
-    updateField(currentStep.field, value);
-    setAnswerError('');
-    setTyping(true);
-    setStepIndex((previous) => previous + 1);
-  };
-
-  const quickReplies = currentStep?.field === 'purpose' ? GOALS.map(([value, label]) => ({ value, label }))
-    : currentStep?.field === 'requestedAmountRub' ? [500000, 1000000, 3000000].map((value) => ({ value, label: formatRub(value) }))
-      : currentStep?.field === 'termMonths' ? [6, 12, 24].map((value) => ({ value, label: `${value} мес.` }))
-        : bankRelationship === 'alfa_account' && ['monthlyRevenueRub', 'monthlyExpensesRub'].includes(currentStep?.field) && form[currentStep.field] !== ''
-          ? [{ value: form[currentStep.field], label: `Верно, ${formatRub(Number(form[currentStep.field]))}` }]
-          : [];
-  const showComposer = Boolean(currentStep);
-  const composerIsText = ['purpose', 'purposeDescription'].includes(currentStep?.field);
-  const composerLabel = currentStep?.field === 'purpose' ? 'Или напишите свою цель' : currentStep?.field === 'purposeDescription' ? 'Опишите задачу' : currentStep?.field === 'termMonths' ? 'Свой срок, мес.'
-    : currentStep?.field === 'monthlyRevenueRub' ? 'Выручка за месяц, ₽'
-      : currentStep?.field === 'monthlyExpensesRub' ? 'Расходы за месяц, ₽' : 'Своя сумма, ₽';
-
-  return <section className="cabinet-chat" aria-label="Диалог по заявке">
-    <header className="cabinet-chat-header"><div><span>ПОМОЩНИК ПО ЗАЯВКЕ</span><h4>Соберём заявку вместе</h4><p>{companyName ? `Для ${companyName}. ` : ''}Несколько коротких вопросов — ответы можно изменить перед отправкой.</p></div><div className="cabinet-chat-header-actions">{onSignIn ? <button type="button" onClick={onSignIn} disabled={Boolean(busy)}>Уже есть кабинет? Войти</button> : <><button type="button" onClick={onMyApplications} disabled={Boolean(busy)}>Мои заявки</button><button type="button" onClick={onManualEntry} disabled={Boolean(busy)}>Обычная форма ↗</button><button type="button" onClick={onSignOut} disabled={Boolean(busy)}>Выйти</button></>}</div></header>
-    <ol className="cabinet-chat-thread" aria-label="Сообщения" ref={threadRef}>
-      <li className="cabinet-chat-row is-assistant is-intro"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">{onSignIn ? 'Привет! Расскажите о задаче бизнеса. Отвечайте кнопками или своими словами — после входа сохраним всё в кабинете.' : 'Привет! Я помогу начать заявку. Выберите ответы или введите свои значения — затем подберём вариант или сохраним черновик.'}</div></li>
-      {answeredSteps.map((step, index) => <React.Fragment key={step.field}>
-        <li className="cabinet-chat-row is-assistant"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">{step.question}</div></li>
-        <li className={`cabinet-chat-row is-user${index === answeredSteps.length - 1 ? ' is-entering' : ''}`}><div className="cabinet-chat-bubble">{answerLabel(step.field)}</div></li>
-      </React.Fragment>)}
-      <li key={`${stepIndex}-${typing || busy === 'recommendations' ? 'typing' : 'message'}`} className="cabinet-chat-row is-assistant is-entering" aria-live="polite"><span className="cabinet-chat-avatar" aria-hidden="true" />{typing || busy === 'recommendations' ? <div className="cabinet-chat-bubble is-typing" role="status"><span className="cabinet-typing-label">{busy === 'recommendations' ? 'Подбираю варианты' : 'Кот печатает'}</span><span className="cabinet-typing-dots" aria-hidden="true"><span /><span /><span /></span></div> : <div className="cabinet-chat-bubble">{replyText}</div>}</li>
-    </ol>
-    {!complete && !typing && <div className="cabinet-chat-reply-area" ref={replyAreaRef}>
-      {quickReplies.length > 0 && <div className="cabinet-chat-choices" aria-label="Варианты ответа">{quickReplies.map((reply) => <button type="button" key={String(reply.value)} onClick={() => answer(reply.value)} disabled={Boolean(busy)}>{reply.label}</button>)}</div>}
-      {showComposer && <form className="cabinet-chat-compose" onSubmit={(event) => { event.preventDefault(); answer(draftAnswer); }}><label htmlFor="cabinet-chat-answer">{composerLabel}</label><div><input id="cabinet-chat-answer" type={composerIsText ? 'text' : 'number'} min={currentStep.field === 'monthlyRevenueRub' || currentStep.field === 'monthlyExpensesRub' ? '0' : '1'} max={currentStep.field === 'termMonths' ? '120' : '1000000000000'} value={draftAnswer} onChange={(event) => { setDraftAnswer(event.target.value); setAnswerError(''); }} disabled={Boolean(busy)} placeholder={currentStep.field === 'purpose' ? 'Например, открыть цветочный магазин' : composerIsText ? 'Например, открыть новую точку' : 'Введите значение'} /><button type="submit" disabled={Boolean(busy)} aria-label="Отправить ответ">↑</button></div></form>}
-      {answerError && <p className="cabinet-inline-error" role="alert">{answerError}</p>}
-    </div>}
-    {complete && !typing && <div className="cabinet-chat-complete" ref={completeActionsRef}><p>{onSignIn ? 'Ответы готовы. Войдите по номеру — сохраним их в кабинете, чтобы вы могли продолжить позже.' : form.purpose === 'other' ? 'Эту цель пока можно сохранить в черновике. Для подбора выберите одну из пяти поддерживаемых целей.' : 'Ответы собраны. Можно сохранить черновик сейчас или сначала посмотреть варианты.'}</p><div className="cabinet-chat-complete-actions">{!onSignIn && form.purpose !== 'other' && <Button view="secondary" type="button" onClick={onSaveDraft} disabled={Boolean(busy)}>Сохранить черновик</Button>}<Button className="cabinet-primary-button" view="primary" type="button" onClick={onSignIn ? onSaveDraft : form.purpose === 'other' ? onSaveDraft : onShowOffers} disabled={Boolean(busy)}>{onSignIn ? 'Войти и сохранить ↗' : busy === 'saving' ? 'Сохраняем…' : busy === 'recommendations' ? 'Подбираем варианты…' : form.purpose === 'other' ? 'Сохранить в кабинете ↗' : recommendations ? 'Обновить варианты ↗' : 'Показать варианты ↗'}</Button></div></div>}
-    <footer className="cabinet-chat-footer"><span>{complete ? 'Ответы собраны' : `Вопрос ${stepIndex + 1 - (customPurposeText ? 1 : 0)} из ${questionCount}`}</span>{stepIndex > 0 && <button type="button" onClick={() => setStepIndex((previous) => previous === 2 && customPurposeText ? 0 : previous - 1)} disabled={Boolean(busy) || typing}>← Изменить прошлый ответ</button>}</footer>
-  </section>;
-}
-
 export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
-  const [authStage, setAuthStage] = useState('intro');
-  const [pendingGuestDraft, setPendingGuestDraft] = useState(false);
+  const [authStage, setAuthStage] = useState('phone');
   const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
@@ -327,9 +182,6 @@ export default function CreditCabinet() {
   const [newFormBaseline, setNewFormBaseline] = useState(initialForm(null));
   const [recommendations, setRecommendations] = useState(null);
   const [screen, setScreen] = useState('new');
-  const [entryMode, setEntryMode] = useState('chat');
-  const [chatStepIndex, setChatStepIndex] = useState(() => selectedLandingPurpose() ? 1 : 0);
-  const [chatCustomPurposeText, setChatCustomPurposeText] = useState('');
   const [documentType, setDocumentType] = useState('BANK_STATEMENT');
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState('');
@@ -382,11 +234,7 @@ export default function CreditCabinet() {
       setCode('');
       setPhone('');
       setAuthStage('phone');
-      setPendingGuestDraft(false);
       setScreen('new');
-      setEntryMode('chat');
-      setChatStepIndex(0);
-      setChatCustomPurposeText('');
       setConflictedForm(null);
       setBusy('');
       setError('Сессия истекла. Войдите по номеру телефона, чтобы продолжить.');
@@ -488,39 +336,23 @@ export default function CreditCabinet() {
         api.getMe(), api.getCompany(session.companyId), api.getCreditProducts(),
         api.listApplications({ limit: 20, offset: 0 }),
       ]);
-      const savedGuestDraft = pendingGuestDraft ? await api.createApplication(payloadFromForm(form)) : null;
       setUser(currentUser);
       setCompany(currentCompany);
       setProducts(productList.items || []);
-      setApplications(savedGuestDraft ? [savedGuestDraft, ...(page.items || [])] : page.items || []);
-      setApplicationsTotal((page.total || 0) + (savedGuestDraft ? 1 : 0));
+      setApplications(page.items || []);
+      setApplicationsTotal(page.total || 0);
       const startingForm = initialFormAfterSignIn(currentCompany, productList.items || []);
-      const nextForm = savedGuestDraft ? formFromApplication(savedGuestDraft)
-        : chatStepIndex > 0 ? {
-          ...form,
-          monthlyRevenueRub: form.monthlyRevenueRub || startingForm.monthlyRevenueRub,
-          monthlyExpensesRub: form.monthlyExpensesRub || startingForm.monthlyExpensesRub,
-        } : startingForm;
-      setForm(nextForm);
+      setForm(startingForm);
       setNewFormBaseline(startingForm);
       setSelected(null);
       setDocuments([]);
       setTimeline([]);
       setRecommendations(null);
-      const startInChat = chatStepIndex > 0 || selectedLandingPurpose() || !(page.items || []).length;
-      const firstScreen = savedGuestDraft ? 'list' : startInChat ? 'new' : 'list';
-      setScreen(firstScreen);
-      setEntryMode(firstScreen === 'new' ? 'chat' : 'form');
-      if (!chatStepIndex || savedGuestDraft) {
-        setChatStepIndex(0);
-        setChatCustomPurposeText('');
-      }
+      setScreen(selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
       setConflictedForm(null);
       setAuthStage('ready');
       setOtpRequest(null);
       setCode('');
-      setPendingGuestDraft(false);
-      if (savedGuestDraft) setNotice('Ответы сохранены в черновике. В кабинете можно продолжить заявку и следить за её статусом после отправки.');
     } catch (failure) {
       api.setAccessToken(null);
       throw failure;
@@ -602,19 +434,16 @@ export default function CreditCabinet() {
     setRecommendations(null);
     setAuthStage('phone');
     setScreen('new');
-    setEntryMode('chat');
-    setChatStepIndex(0);
-    setChatCustomPurposeText('');
     setChosenProfile(null);
     setOtpRequest(null);
     setCode('');
     setPhone('');
     setConflictedForm(null);
-    setPendingGuestDraft(false);
     clearMessages();
   };
 
   const beginNew = () => {
+    if (screen === 'new') return;
     if (!confirmLeaveForm()) return;
     clearMessages();
     setSelected(null);
@@ -630,9 +459,6 @@ export default function CreditCabinet() {
     setFile(null);
     setConflictedForm(null);
     setScreen('new');
-    setEntryMode('chat');
-    setChatStepIndex(0);
-    setChatCustomPurposeText('');
   };
 
   const goToList = () => {
@@ -677,7 +503,6 @@ export default function CreditCabinet() {
       setConflictedForm(null);
       setDocumentType(application.productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
       setScreen('application');
-      setEntryMode('form');
     } catch (failure) { reportError(failure, 'Не удалось открыть заявку.'); }
     finally { setBusy(''); }
   };
@@ -751,27 +576,23 @@ export default function CreditCabinet() {
     if (validation) { setError(validation); return; }
     setBusy('saving');
     try {
-      const returnToCabinet = screen === 'new' && entryMode === 'chat';
       const payload = payloadFromForm(form);
       const wasNew = !selected;
       const saved = selected
         ? await api.updateApplication(selected.applicationId, { version: selected.version, ...payload })
         : await api.createApplication(payload);
-      setSelected(returnToCabinet ? null : saved);
+      setSelected(saved);
       setApplications((previous) => [saved, ...previous.filter((item) => item.applicationId !== saved.applicationId)]);
       if (wasNew) { setApplicationsTotal((previous) => previous + 1); setDocuments([]); setTimeline([]); }
       setForm(formFromApplication(saved));
       setRecommendations(null);
       setDocumentType(saved.productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
-      setScreen(returnToCabinet ? 'list' : 'application');
-      setEntryMode('form');
+      setScreen('application');
       setConflictedForm(null);
       setNotice(wasNew ? 'Черновик сохранён в кабинете. Продолжите его, когда будете готовы к отправке.' : 'Изменения сохранены.');
       try {
-        if (!returnToCabinet) {
-          const application = await refreshSelected(saved.applicationId);
-          setForm(formFromApplication(application));
-        }
+        const application = await refreshSelected(saved.applicationId);
+        setForm(formFromApplication(application));
         await loadApplications(0);
       } catch (refreshError) {
         setNotice('Черновик сохранён. Свежий список пока недоступен; откройте его позже.');
@@ -930,8 +751,7 @@ export default function CreditCabinet() {
   const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
   const draftToContinue = applications.filter((item) => item.status === 'draft')
     .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
-  const showApplicationDetails = screen === 'application' || entryMode === 'form'
-    || Boolean(recommendations);
+  const showApplicationDetails = screen === 'new' || screen === 'application' || Boolean(recommendations);
 
   useEffect(() => {
     if (authStage !== 'ready' || !(hasUnsavedChanges || hasNewChanges || conflictedForm)) return undefined;
@@ -954,19 +774,11 @@ export default function CreditCabinet() {
         ? 'Проверьте данные, приложите документы и отправьте заявку.'
         : 'Здесь видны этап проверки и история вашей заявки.';
 
-  if (authStage === 'intro') return <div className="credit-cabinet credit-cabinet-dashboard credit-cabinet-conversation credit-cabinet-guest">
-    <section className="cabinet-main-panel" aria-label="Начало заявки">
-      <div className="cabinet-panel-content"><div className="cabinet-workflow">
-        <ChatIntake form={form} bankRelationship="unknown" stepIndex={chatStepIndex} setStepIndex={setChatStepIndex} customPurposeText={chatCustomPurposeText} setCustomPurposeText={setChatCustomPurposeText} updateField={updateField} busy="" onSignIn={() => { setPendingGuestDraft(false); clearMessages(); setAuthStage('phone'); }} onSaveDraft={() => { setPendingGuestDraft(true); clearMessages(); setAuthStage('phone'); }} />
-      </div></div>
-    </section>
-  </div>;
-
   if (authStage !== 'ready') return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
     {authStage === 'phone' ? <>
-      <h3>{pendingGuestDraft ? 'Сохраните ответы в кабинете' : 'Войдите в кабинет'}</h3>
-      <p className="cabinet-lede">{pendingGuestDraft ? 'Подтвердите вход по номеру телефона — мы сохраним ответы как черновик вашей заявки.' : 'Введите номер, чтобы увидеть свои заявки и их актуальные статусы.'}</p>
+      <h3>Войдите в кабинет</h3>
+      <p className="cabinet-lede">Введите номер, чтобы начать новую заявку или проверить статус уже отправленной.</p>
       <form className="cabinet-phone-form" onSubmit={submitPhone}>
         <Input className="cabinet-auth-input" label="Номер телефона" type="tel" inputMode="tel" autoComplete="tel" placeholder="+7 999 000-00-00" value={phone} onChange={(_, data) => { setPhone(data?.value ?? ''); setChosenProfile(null); clearMessages(); }} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy) || profiles.length === 0}>{busy === 'otp-request' ? 'Запрашиваем код…' : 'Получить код'}</Button>
@@ -976,23 +788,22 @@ export default function CreditCabinet() {
       {profiles.length === 0 && !busy && <Button view="secondary" onClick={() => window.location.reload()}>Повторить загрузку</Button>}
       <ErrorNotice error={error} details={details} />
       <p className="cabinet-fineprint">Вход по номеру пока доступен для указанных компаний. SMS в этом сценарии не отправляется.</p>
-      {chatStepIndex > 0 && <button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('intro'); setPendingGuestDraft(false); clearMessages(); }} disabled={Boolean(busy)}>← Вернуться к диалогу</button>}
       {busy === 'quick-sign-in' && <LoadingCard title="Открываем кабинет" detail="Загружаем данные компании и заявки." />}
     </> : <>
       <h3>Подтвердите вход</h3>
-      <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. {pendingGuestDraft ? 'После входа ответы сохранятся в кабинете.' : `После входа откроется кабинет ${chosenProfile?.companyName}.`}</p>
+      <p className="cabinet-lede">Код доступа для <strong>{otpRequest?.maskedPhone}</strong>. После входа откроется кабинет {chosenProfile?.companyName}.</p>
       <form onSubmit={verifyCode} className="cabinet-code-form">
         <Input className="cabinet-auth-input" label="Код доступа" type="password" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(_, data) => { setCode(data?.value ?? ''); clearMessages(); }} />
         <ErrorNotice error={error} details={details} />
         <Button className="cabinet-primary-button" view="primary" type="submit" disabled={Boolean(busy)}>{busy === 'otp-verify' ? 'Проверяем код…' : 'Войти в кабинет'}</Button>
       </form>
       {notice && <p className="cabinet-notice" role="status">{notice}</p>}
-      <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button>{chatStepIndex > 0 && <button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('intro'); setPendingGuestDraft(false); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Вернуться к диалогу</button>}</div>
+      <div className="cabinet-code-actions"><button className="cabinet-text-button" type="button" onClick={() => requestCode(chosenProfile, { resend: true })} disabled={Boolean(busy)}>Запросить новый код</button><button className="cabinet-text-button" type="button" onClick={() => { setAuthStage('phone'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>Изменить номер</button></div>
       <p className="cabinet-fineprint">Автоматическая отправка SMS пока не подключена. Используйте код тестового окружения; он действует 5 минут.</p>
     </>}
   </div>;
 
-  return <div className={`credit-cabinet credit-cabinet-dashboard ${screen === 'new' && entryMode === 'chat' ? 'credit-cabinet-conversation' : ''}`}>
+  return <div className="credit-cabinet credit-cabinet-dashboard">
     <aside className="cabinet-sidebar" aria-label="Компания и разделы">
     <div className="cabinet-sidebar-top">ЛИЧНЫЙ КАБИНЕТ</div>
     <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div><span className="cabinet-account-mark" aria-hidden="true">а.</span></div>
@@ -1003,7 +814,7 @@ export default function CreditCabinet() {
     {bankRelationship !== 'unknown' && <details className="cabinet-account-details"><summary>Данные о счёте</summary><div className={`cabinet-account-path is-${bankRelationship}`}><strong>{bankRelationship === 'alfa_account' ? 'Счёт в Альфа-Банке уже есть' : 'Счёта в Альфа-Банке пока нет'}</strong><p>{bankRelationship === 'alfa_account'
       ? 'Данные об оборотах подставлены из профиля компании. Проверьте их перед отправкой заявки.'
       : 'Заявку можно подать без счёта в Альфе. Для оборотного кредита нужна выписка из другого банка. Если кредит одобрят, счёт потребуется перед выдачей.'}</p></div></details>}
-    <button className="cabinet-signout" type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти из кабинета ↗</button>
+    <button className="cabinet-signout" type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти из кабинета</button>
     </aside>
     <section className="cabinet-main-panel" aria-label={panelTitle}>
       <header className="cabinet-panel-header"><div><span className="cabinet-panel-kicker">КАБИНЕТ ПРЕДПРИНИМАТЕЛЯ</span><h2>{panelTitle}</h2><p>{panelDescription}</p></div><span className="cabinet-panel-count">Заявок: {applicationsTotal}</span></header>
@@ -1026,8 +837,6 @@ export default function CreditCabinet() {
       {selected && <div className="cabinet-draft-bar"><span>Черновик № {shortId(selected.applicationId)} · версия {selected.version}</span><button type="button" onClick={goToList} disabled={Boolean(busy)}>К списку ↑</button></div>}
       {selected && journeyStage && <JourneyProgress stage={journeyStage} />}
       {conflictedForm && <div className="cabinet-conflict" role="alert"><strong>Ваш ввод сохранён на этой странице</strong><p>С сервера загружена новая версия черновика. Восстановите свои значения, проверьте их и снова сохраните.</p><div><Button view="secondary" onClick={() => { setForm(conflictedForm); setConflictedForm(null); clearMessages(); setNotice('Ваш ввод восстановлен. Проверьте данные и сохраните изменения.'); }}>Восстановить мой ввод</Button><button type="button" className="cabinet-text-button" onClick={() => { setConflictedForm(null); clearMessages(); }}>Оставить версию сервера</button></div></div>}
-      {screen === 'new' && entryMode === 'chat' ? <ChatIntake form={form} companyName={company?.name} bankRelationship={bankRelationship} stepIndex={chatStepIndex} setStepIndex={setChatStepIndex} customPurposeText={chatCustomPurposeText} setCustomPurposeText={setChatCustomPurposeText} updateField={updateField} busy={busy} onShowOffers={calculate} onSaveDraft={saveDraft} onManualEntry={() => setEntryMode('form')} onMyApplications={goToList} onSignOut={signOut} recommendations={recommendations} /> : <>
-      {screen === 'new' && <button className="cabinet-chat-return" type="button" onClick={() => { setRecommendations(null); setChatStepIndex(0); setChatCustomPurposeText(''); setEntryMode('chat'); }}>← Пройти диалог с текущими данными</button>}
       <h4>{selected ? 'Редактирование черновика' : 'Для чего нужны средства?'}</h4>
       <p className="cabinet-description">Опишите задачу и проверьте финансовые данные. Подбор покажет возможные варианты, а черновик можно сохранить и продолжить позже.</p>
       <form onSubmit={calculate} className="cabinet-form" ref={formRef}>
@@ -1047,7 +856,6 @@ export default function CreditCabinet() {
             : 'Укажите месячную выручку и расходы. Источник оборотов пока не подтверждён.'}</p>
         <Button view="secondary" type="submit" disabled={Boolean(busy)}>{busy === 'recommendations' ? 'Считаем варианты…' : 'Рассчитать варианты ↗'}</Button>
       </form>
-      </>}
 
       {recommendations && <section className="cabinet-recommendations" aria-label="Предварительный подбор">
         <div className="cabinet-section-head"><div><span>ПРЕДВАРИТЕЛЬНЫЙ ПОДБОР</span><h4>Что подходит сейчас</h4></div><span className="cabinet-budget">Бюджет платежа {formatRub(recommendations.paymentBudgetRub)} / мес.</span></div>

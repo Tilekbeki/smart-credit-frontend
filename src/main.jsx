@@ -75,7 +75,7 @@ function LandingPage() {
         <section className="pain section-pad" id="why" aria-labelledby="pain-title">
           <div className="container">
             <div className="section-head" data-reveal>
-              <span className="eyebrow">01 / Узнаёте ситуацию?</span>
+              <span className="eyebrow">Узнаёте ситуацию?</span>
               <h2 id="pain-title">Кредитный путь не должен<br />быть <span className="marker">сложнее бизнеса.</span></h2>
             </div>
             <div className="pain-grid">
@@ -114,7 +114,7 @@ function LandingPage() {
         <section className="approach section-pad" id="how" aria-labelledby="approach-title">
           <div className="container approach-grid">
             <div className="approach-copy" data-reveal>
-              <span className="eyebrow eyebrow-light">02 / Вместо неопределённости</span>
+              <span className="eyebrow eyebrow-light">Вместо неопределённости</span>
               <h2 id="approach-title">Один маршрут.<br /><span>Без догадок.</span></h2>
               <p>Выберите цель, подготовьте документы и отправьте заявку. В кабинете вы увидите сохранённый статус и историю автоматических проверок.</p>
               <ol className="step-list">
@@ -140,18 +140,18 @@ function LandingPage() {
         <section className="products section-pad" id="products" aria-labelledby="products-title">
           <div className="container">
             <div className="section-head compact" data-reveal>
-              <span className="eyebrow">03 / Для разных задач</span>
+              <span className="eyebrow">Для разных задач</span>
               <h2 id="products-title">Не просто «взять кредит».<br /><span className="marker">Решить вашу задачу.</span></h2>
               <p>Несколько задач бизнеса, два кредитных продукта для первого релиза. Выбор начинается с вашей цели.</p>
             </div>
             <div className="product-grid">
               <article className="product-card turnover-card" data-reveal>
-                <div className="product-top"><span>01 / На каждый день</span><span className="product-glyph">↺</span></div>
+                <div className="product-top"><span>На каждый день</span><span className="product-glyph">↺</span></div>
                 <div><h3>Оборотные<br />средства</h3><p>Закупка товаров, материалов и текущие расходы бизнеса.</p></div>
                 <a className="product-link" href="/cabinet?purpose=stock">Подобрать вариант <span aria-hidden="true">↗</span></a>
               </article>
               <article className="product-card equipment-card" data-reveal>
-                <div className="product-top"><span>02 / На развитие</span><span className="product-glyph">↗</span></div>
+                <div className="product-top"><span>На развитие</span><span className="product-glyph">↗</span></div>
                 <div><h3>Инвестиционный<br />кредит</h3><p>Покупка оборудования для следующего этапа роста.</p></div>
                 <a className="product-link" href="/cabinet?purpose=equipment">Подобрать вариант <span aria-hidden="true">↗</span></a>
               </article>
@@ -163,7 +163,7 @@ function LandingPage() {
         <section className="clarity section-pad" id="status" aria-labelledby="clarity-title">
           <div className="container clarity-grid">
             <div data-reveal>
-              <span className="eyebrow">04 / Видно, что дальше</span>
+              <span className="eyebrow">Видно, что дальше</span>
               <h2 id="clarity-title">Заявка не пропадает<br />в <span className="marker">чёрном ящике.</span></h2>
               <p>Кабинет показывает, что заявка отправлена, когда началась обработка и какие этапы проверки уже пройдены.</p>
               <ul className="check-list"><li>Понятные статусы без внутренних терминов</li><li>История обработки в одном месте</li><li>Объяснение дальнейших действий</li></ul>
@@ -182,7 +182,7 @@ function LandingPage() {
         <section className="cabinet-preview section-pad" id="start" aria-labelledby="preview-title">
           <div className="container preview-layout">
             <div className="preview-intro" data-reveal>
-              <span className="eyebrow eyebrow-light">05 / Ваш следующий шаг</span>
+              <span className="eyebrow eyebrow-light">Ваш следующий шаг</span>
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
               <p>Войдите, подберите продукт, сохраните черновик и следите за заявкой. Кабинет подскажет шаги с учётом данных вашей компании.</p>
               <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
@@ -202,7 +202,7 @@ function LandingPage() {
 
         <section className="faq section-pad" aria-labelledby="faq-title">
           <div className="container faq-grid">
-            <div data-reveal><span className="eyebrow">06 / Без мелкого шрифта</span><h2 id="faq-title">Важное —<br /><span className="marker">сразу понятно.</span></h2></div>
+            <div data-reveal><span className="eyebrow">Без мелкого шрифта</span><h2 id="faq-title">Важное —<br /><span className="marker">сразу понятно.</span></h2></div>
             <div className="faq-list" data-reveal>
               <details><summary>Это настоящий банковский сервис?<span aria-hidden="true">+</span></summary><p>Нет. Сценарий работает на синтетических данных: заявки сохраняются в сервисе проекта, реальные банковские операции не выполняются.</p></details>
               <details><summary>Подбор означает одобрение?<span aria-hidden="true">+</span></summary><p>Нет. Подбор предлагает тип продукта. После отправки система проверяет данные и показывает учебное решение с объяснением в кабинете.</p></details>

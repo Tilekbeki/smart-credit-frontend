@@ -539,30 +539,6 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) { display: block; width: min(100%, 1510px); padding-top: 25px; padding-bottom: 24px; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-intro { display: none; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-note { color: #69777e; }
-.cabinet-page:has(.credit-cabinet-conversation) { color: #f4f7fa; background: #030508; }
-.cabinet-page:has(.credit-cabinet-conversation)::before {
-  --inner-orbit: min(25vw, 300px);
-  --outer-orbit: min(36vw, 420px);
-  display: block;
-  z-index: 0;
-  inset: 0;
-  width: auto;
-  height: auto;
-  border-radius: 0;
-  background-image:
-    radial-gradient(circle at 72% 49%, transparent calc(var(--inner-orbit) - 1px), rgba(139, 230, 243, .22) var(--inner-orbit), transparent calc(var(--inner-orbit) + 1px)),
-    radial-gradient(circle at 72% 49%, transparent calc(var(--outer-orbit) - 1px), rgba(139, 230, 243, .14) var(--outer-orbit), transparent calc(var(--outer-orbit) + 1px)),
-    linear-gradient(rgba(122, 167, 186, .055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(122, 167, 186, .055) 1px, transparent 1px),
-    radial-gradient(circle at 86% 28%, rgba(9, 116, 149, .2), transparent 47%);
-  background-size: auto, auto, 72px 72px, 72px 72px, auto;
-}
-.cabinet-page:has(.credit-cabinet-conversation)::after { display: block; z-index: 0; right: 19%; bottom: -49%; left: auto; background: radial-gradient(circle, rgba(228, 37, 53, .13), transparent 64%); }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-header { position: relative; z-index: 1; border-bottom-color: rgba(255, 255, 255, .09); background: rgba(3, 5, 8, .68); }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-main { position: relative; z-index: 1; }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link { border-color: rgba(255, 255, 255, .2); color: #e8f1f3; background: rgba(34, 41, 49, .64); }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link:hover { border-color: rgba(140, 235, 242, .62); background: rgba(34, 41, 49, .86); }
-.cabinet-page-main:has(.credit-cabinet-conversation) .cabinet-page-note { color: #7e8994; }
 .cabinet-page-note { grid-column: 1 / -1; margin: 23px 0 0; color: #8c9da5; font-size: 11px; line-height: 1.5; }
 
 /* Motion only where the user's preference allows it */
@@ -737,11 +713,4 @@ h1, h2, h3 { letter-spacing: -.063em; }
   .float-card { font-size: 9px; }
   .float-card-emoji { width: 21px; height: 21px; font-size: 13px; }
   .float-card-salon { right: 23%; }
-}
-
-@media (max-width: 590px) {
-  .cabinet-page:has(.credit-cabinet-conversation)::before {
-    --inner-orbit: min(53vw, 210px);
-    --outer-orbit: min(79vw, 310px);
-  }
 }
