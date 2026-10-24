@@ -3,6 +3,7 @@ import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
 import * as api from './api';
 import { getJourneyStage, getNextAction, getSubmitChecklist } from './journey';
+import GuestChat from './GuestChat';
 import './cabinet.css';
 
 const GOALS = [
@@ -163,7 +164,8 @@ function SubmitChecklist({ checklist }) {
 
 export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
-  const [authStage, setAuthStage] = useState('phone');
+  const [authStage, setAuthStage] = useState('intro');
+  const [guestProgress, setGuestProgress] = useState(null);
   const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
@@ -195,6 +197,7 @@ export default function CreditCabinet() {
   const submitRef = useRef(null);
   const panelContentRef = useRef(null);
   const offerActionRef = useRef(null);
+  const guestPrefillRef = useRef(null);
 
   const reportError = (failure, fallback = 'Не удалось выполнить действие.') => {
     setError(failure?.message || fallback);
@@ -235,6 +238,8 @@ export default function CreditCabinet() {
       setPhone('');
       setAuthStage('phone');
       setScreen('new');
+      guestPrefillRef.current = null;
+      setGuestProgress(null);
       setConflictedForm(null);
       setBusy('');
       setError('Сессия истекла. Войдите по номеру телефона, чтобы продолжить.');
@@ -342,13 +347,16 @@ export default function CreditCabinet() {
       setApplications(page.items || []);
       setApplicationsTotal(page.total || 0);
       const startingForm = initialFormAfterSignIn(currentCompany, productList.items || []);
-      setForm(startingForm);
+      const guestPrefill = guestPrefillRef.current;
+      setForm(guestPrefill ? { ...startingForm, ...guestPrefill, productId: null } : startingForm);
       setNewFormBaseline(startingForm);
+      guestPrefillRef.current = null;
+      setGuestProgress(null);
       setSelected(null);
       setDocuments([]);
       setTimeline([]);
       setRecommendations(null);
-      setScreen(selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
+      setScreen(guestPrefill || selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
       setConflictedForm(null);
       setAuthStage('ready');
       setOtpRequest(null);
@@ -432,8 +440,10 @@ export default function CreditCabinet() {
     setNewFormBaseline(initialForm(null));
     setFile(null);
     setRecommendations(null);
-    setAuthStage('phone');
+    setAuthStage('intro');
     setScreen('new');
+    guestPrefillRef.current = null;
+    setGuestProgress(null);
     setChosenProfile(null);
     setOtpRequest(null);
     setCode('');
@@ -774,8 +784,18 @@ export default function CreditCabinet() {
         ? 'Проверьте данные, приложите документы и отправьте заявку.'
         : 'Здесь видны этап проверки и история вашей заявки.';
 
+  if (authStage === 'intro') return <GuestChat
+    form={form}
+    onFieldChange={updateField}
+    initialProgress={guestProgress}
+    onProgressChange={setGuestProgress}
+    onContinue={() => { guestPrefillRef.current = { ...form }; clearMessages(); setAuthStage('phone'); }}
+    onSignIn={() => { guestPrefillRef.current = null; clearMessages(); setAuthStage('phone'); }}
+  />;
+
   if (authStage !== 'ready') return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
+    <button className="cabinet-text-button cabinet-back-to-chat" type="button" onClick={() => { setAuthStage('intro'); setOtpRequest(null); setCode(''); clearMessages(); }} disabled={Boolean(busy)}>← Вернуться в чат</button>
     {authStage === 'phone' ? <>
       <h3>Войдите в кабинет</h3>
       <p className="cabinet-lede">Введите номер, чтобы начать новую заявку или проверить статус уже отправленной.</p>

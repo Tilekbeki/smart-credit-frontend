@@ -67,6 +67,7 @@
 .cabinet-code-form > button { min-height: 50px; }
 .cabinet-code-actions { display: flex; flex-wrap: wrap; gap: 12px 22px; margin-top: 18px; }
 .cabinet-text-button { padding: 0 0 4px; border: 0; border-bottom: 1px solid #a6b2b7; color: #53636b; background: none; font-size: 13px; font-weight: 700; }
+.cabinet-back-to-chat { display: inline-flex; width: fit-content; margin: -10px 0 24px; }
 .cabinet-error { margin: 16px 0; padding: 14px 16px; border: 1px solid #f2b6af; border-radius: 12px; color: #9f251d; background: #fff1ee; font-size: 13px; line-height: 1.45; }
 .cabinet-error strong { font-weight: 700; }
 .cabinet-error ul { margin: 8px 0 0; padding-left: 19px; }
