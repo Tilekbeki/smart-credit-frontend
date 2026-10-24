@@ -412,6 +412,93 @@
 }
 .cabinet-opening-overlay .cabinet-loading { width: min(100%, 400px); padding: 35px 24px; border: 1px solid #dce8ea; border-radius: 16px; background: #fff; box-shadow: 0 16px 45px rgba(30, 53, 63, .1); }
 
+/* Signed-in palette: a quiet gray canvas, white surfaces and one strong red accent. */
+.credit-cabinet-dashboard {
+  --cabinet-ink: #25252b;
+  --cabinet-muted: #61636d;
+  --cabinet-line: #e2e2e8;
+  --cabinet-soft: #f6f6f8;
+  --cabinet-red: #d52a22;
+}
+.credit-cabinet-dashboard h3,
+.credit-cabinet-dashboard h4,
+.credit-cabinet-dashboard h5 { color: var(--cabinet-ink); }
+.credit-cabinet-dashboard .cabinet-sidebar,
+.credit-cabinet-dashboard .cabinet-main-panel { border-color: var(--cabinet-line); box-shadow: 0 14px 34px rgba(43, 43, 57, .055); }
+.credit-cabinet-dashboard .cabinet-account p,
+.credit-cabinet-dashboard .cabinet-panel-header p,
+.credit-cabinet-dashboard .cabinet-description,
+.credit-cabinet-dashboard .cabinet-helper { color: var(--cabinet-muted); }
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-tabs button { color: #43454d; }
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-tabs button:hover { color: var(--cabinet-ink); background: #f2f2f5; }
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-tabs button.active { color: var(--cabinet-ink); background: #ededf0; }
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-tabs span { color: #a52c25; background: #ffe4e0; }
+.credit-cabinet-dashboard .cabinet-panel-header { border-bottom-color: var(--cabinet-line); }
+.credit-cabinet-dashboard .cabinet-panel-header h2 { color: var(--cabinet-ink); }
+.credit-cabinet-dashboard .cabinet-panel-count { color: #494b55; background: #f0f0f3; }
+.credit-cabinet-dashboard .cabinet-account-path,
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-account-details .cabinet-account-path { border-color: var(--cabinet-line); background: var(--cabinet-soft); }
+.credit-cabinet-dashboard .cabinet-account-path strong { color: #41434c; }
+.credit-cabinet-dashboard .cabinet-account-path.is-external_account,
+.credit-cabinet-dashboard .cabinet-sidebar .cabinet-account-details .cabinet-account-path.is-external_account { border-color: #ebe2d8; background: #fdfaf6; }
+.credit-cabinet-dashboard .cabinet-account-path.is-external_account strong { color: #80552c; }
+.credit-cabinet-dashboard .cabinet-row-icon { color: #565174; background: #eeeaf8; }
+.credit-cabinet-dashboard .cabinet-application-row { border-color: var(--cabinet-line); color: var(--cabinet-ink); }
+.credit-cabinet-dashboard .cabinet-application-row:hover { border-color: #bfc0ca; background: #fafafd; }
+.credit-cabinet-dashboard .cabinet-resume { border-color: #d7e4f8; background: #eaf2ff; }
+.credit-cabinet-dashboard .cabinet-resume span,
+.credit-cabinet-dashboard .cabinet-next-action span,
+.credit-cabinet-dashboard .cabinet-journey-heading span,
+.credit-cabinet-dashboard .cabinet-checklist .cabinet-section-head span { color: #415d9a; }
+.credit-cabinet-dashboard .cabinet-resume p { color: #505d78; }
+.credit-cabinet-dashboard .cabinet-journey { border-color: var(--cabinet-line); background: #fafafd; }
+.credit-cabinet-dashboard .cabinet-journey li { color: #6e707b; }
+.credit-cabinet-dashboard .cabinet-journey li > span { border-color: #d6d6dd; }
+.credit-cabinet-dashboard .cabinet-next-action { background: #f2effb; }
+.credit-cabinet-dashboard .cabinet-next-action p { color: #615d73; }
+.credit-cabinet-dashboard .cabinet-goals label { border-color: var(--cabinet-line); color: #3e4048; background: #fff; }
+.credit-cabinet-dashboard .cabinet-goals label:hover { border-color: #bfc0c9; background: #fafafd; }
+.credit-cabinet-dashboard .cabinet-goals label.selected { border-color: var(--cabinet-red); color: #9f2924; background: #fff3f1; }
+.credit-cabinet-dashboard .cabinet-goals label:focus-within,
+.credit-cabinet-dashboard button:focus-visible,
+.credit-cabinet-dashboard select:focus-visible,
+.credit-cabinet-dashboard textarea:focus-visible,
+.credit-cabinet-dashboard input:focus-visible { outline-color: #d52a22; }
+.credit-cabinet-dashboard .cabinet-finance-input { width: 100%; }
+.credit-cabinet-dashboard .cabinet-finance-input [class*="form-control__inner"] { border-radius: 13px; background: var(--cabinet-soft); box-shadow: inset 0 0 0 1px var(--cabinet-line); transition: box-shadow .2s ease; }
+.credit-cabinet-dashboard .cabinet-finance-input [class*="form-control__inner"]::before { border-bottom: 0; }
+.credit-cabinet-dashboard .cabinet-finance-input [class*="form-control__inner"]:focus-within { box-shadow: inset 0 0 0 2px var(--cabinet-red); }
+.credit-cabinet-dashboard .cabinet-textarea-label textarea,
+.credit-cabinet-dashboard .cabinet-product-picker select,
+.credit-cabinet-dashboard .cabinet-upload select { border-color: var(--cabinet-line); border-radius: 13px; background: var(--cabinet-soft); }
+.credit-cabinet-dashboard .cabinet-document-plan { border-left-color: #7796d9; background: #eef3ff; }
+.credit-cabinet-dashboard .cabinet-document-plan strong { color: #405c91; }
+.credit-cabinet-dashboard .cabinet-document-plan p { color: #566783; }
+.credit-cabinet-dashboard .cabinet-document-icon { color: #555171; background: #eeeaf8; }
+.credit-cabinet-dashboard .cabinet-submit { background: #f1f1f5; }
+.credit-cabinet-dashboard .cabinet-summary { border-color: var(--cabinet-line); }
+.credit-cabinet-dashboard .cabinet-product,
+.credit-cabinet-dashboard .cabinet-product-terms { border-color: var(--cabinet-line); background: #fafafd; }
+.credit-cabinet-dashboard .cabinet-product.chosen { border-color: var(--cabinet-red); background: #fff7f5; }
+.credit-cabinet-dashboard .cabinet-product-metrics > div { background: #f0f0f3; }
+.credit-cabinet-dashboard .cabinet-product-terms strong { color: #474957; }
+.credit-cabinet-dashboard .cabinet-budget,
+.credit-cabinet-dashboard .cabinet-reasons { color: #5d606a; }
+.credit-cabinet-dashboard .cabinet-adjustments button { border-color: #d8e3f7; color: #365b9a; background: #edf3ff; }
+.credit-cabinet-dashboard .cabinet-decision-panel:not(.is-rejected) { border-color: #dce4f4; background: linear-gradient(145deg, #f1f5ff, #fff 74%); }
+.credit-cabinet-dashboard .cabinet-decision-heading { color: #405d98; }
+.credit-cabinet-dashboard .cabinet-decision-panel.is-rejected .cabinet-decision-heading { color: #a52c25; }
+.credit-cabinet-dashboard .cabinet-risk-summary { background: #f1f1f5; }
+.credit-cabinet-dashboard .cabinet-risk-summary span,
+.credit-cabinet-dashboard .cabinet-risk-summary strong { color: #4b4d5a; }
+.credit-cabinet-dashboard .cabinet-offer { border-color: var(--cabinet-line); }
+.credit-cabinet-dashboard .cabinet-offer-intro { color: #405d98; }
+.credit-cabinet-dashboard .cabinet-timeline li:not(:last-child)::after { background: #d8d8df; }
+.credit-cabinet-dashboard .cabinet-timeline-dot { border-color: #a6a8b8; }
+.credit-cabinet-dashboard .cabinet-status:not(.status-draft):not(.status-processing):not(.status-submitted):not(.status-rejected) { color: #286748; background: #e8f7ee; }
+.credit-cabinet-dashboard .cabinet-primary-button { color: #fff; background: var(--cabinet-red); }
+.credit-cabinet-dashboard .cabinet-primary-button:hover { background: #b8241e; }
+
 @keyframes cabinet-spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) {
   .credit-cabinet-dashboard { grid-template-columns: minmax(0, 1fr); gap: 12px; height: auto; min-height: 0; }

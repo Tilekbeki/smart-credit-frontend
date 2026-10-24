@@ -530,15 +530,15 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .cabinet-page-intro h1 { margin: 20px 0 20px; font-size: clamp(46px, 4.3vw, 69px); font-weight: 800; line-height: .99; overflow-wrap: anywhere; }
 .cabinet-page-intro > p { max-width: 620px; margin: 0; color: #b9c7ce; font-size: clamp(16px, 1.5vw, 19px); line-height: 1.55; }
 .cabinet-page .credit-cabinet-auth { grid-column: 2; max-width: 670px; }
-.cabinet-page:has(.credit-cabinet-dashboard) { overflow: visible; color: #20252a; background: #f3f5f6; }
+.cabinet-page:has(.credit-cabinet-dashboard) { overflow: visible; color: #242429; background: #e3e4e9; }
 .cabinet-page:has(.credit-cabinet-dashboard)::before,
 .cabinet-page:has(.credit-cabinet-dashboard)::after { display: none; }
-.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-page-header { border-bottom-color: #e1e7e9; background: #fff; }
-.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-home-link { border-color: #dce4e7; color: #465860; background: #fff; }
-.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-home-link:hover { border-color: #9fc8ce; background: #f3fafb; }
+.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-page-header { border-bottom-color: transparent; background: #e3e4e9; }
+.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-home-link { border-color: #d5d6dc; color: #42434b; background: #f7f7f9; }
+.cabinet-page:has(.credit-cabinet-dashboard) .cabinet-home-link:hover { border-color: #b9bac3; background: #fff; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) { display: block; width: min(100%, 1510px); padding-top: 25px; padding-bottom: 24px; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-intro { display: none; }
-.cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-note { color: #69777e; }
+.cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-note { color: #5d606a; }
 .cabinet-page-note { grid-column: 1 / -1; margin: 23px 0 0; color: #8c9da5; font-size: 11px; line-height: 1.5; }
 
 /* Motion only where the user's preference allows it */
