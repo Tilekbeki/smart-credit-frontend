@@ -206,9 +206,10 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .float-card-car-wash { bottom: 27%; left: -9%; }
 .float-card-shawarma { right: 0; bottom: 6%; border-color: #dbccfc; color: #392450; background: #eee4ff; rotate: 4deg; }
 .float-card-shawarma .float-card-emoji { background: rgba(255,255,255,.65); }
+.float-card-salon { right: 20%; bottom: 28%; padding: 10px 12px; border-color: rgba(139,230,243,.32); background: rgba(34,41,49,.78); }
+.float-card-salon .float-card-emoji { width: 26px; height: 26px; font-size: 16px; }
 .hero-sparkle { position: absolute; z-index: 3; display: grid; place-items: center; color: #81eaf3; filter: drop-shadow(0 0 12px rgba(110,230,239,.7)); }
 .hero-sparkle-star { top: 4%; right: 24%; font-size: 34px; }
-.hero-sparkle-gift { right: 23%; bottom: 28%; font-size: 28px; transform: rotate(13deg); }
 
 /* Problem, then a concrete path */
 .pain { background: #f5f6f5; }
@@ -532,16 +533,25 @@ h1, h2, h3 { letter-spacing: -.063em; }
 .cabinet-page-main:has(.credit-cabinet-dashboard) .cabinet-page-note { color: #69777e; }
 .cabinet-page:has(.credit-cabinet-conversation) { color: #f4f7fa; background: #030508; }
 .cabinet-page:has(.credit-cabinet-conversation)::before {
+  --inner-orbit: min(25vw, 300px);
+  --outer-orbit: min(36vw, 420px);
+  display: block;
+  z-index: 0;
   inset: 0;
   width: auto;
   height: auto;
   border-radius: 0;
-  background-image: linear-gradient(rgba(122, 167, 186, .055) 1px, transparent 1px), linear-gradient(90deg, rgba(122, 167, 186, .055) 1px, transparent 1px), radial-gradient(circle at 86% 28%, rgba(9, 116, 149, .2), transparent 47%);
-  background-size: 72px 72px, 72px 72px, auto;
-  background-position: 0 0, 0 0, center;
+  background-image:
+    radial-gradient(circle at 72% 49%, transparent calc(var(--inner-orbit) - 1px), rgba(139, 230, 243, .22) var(--inner-orbit), transparent calc(var(--inner-orbit) + 1px)),
+    radial-gradient(circle at 72% 49%, transparent calc(var(--outer-orbit) - 1px), rgba(139, 230, 243, .14) var(--outer-orbit), transparent calc(var(--outer-orbit) + 1px)),
+    linear-gradient(rgba(122, 167, 186, .055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(122, 167, 186, .055) 1px, transparent 1px),
+    radial-gradient(circle at 86% 28%, rgba(9, 116, 149, .2), transparent 47%);
+  background-size: auto, auto, 72px 72px, 72px 72px, auto;
 }
-.cabinet-page:has(.credit-cabinet-conversation)::after { right: 19%; bottom: -49%; left: auto; background: radial-gradient(circle, rgba(228, 37, 53, .13), transparent 64%); }
-.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-header { border-bottom-color: rgba(255, 255, 255, .09); background: rgba(3, 5, 8, .68); }
+.cabinet-page:has(.credit-cabinet-conversation)::after { display: block; z-index: 0; right: 19%; bottom: -49%; left: auto; background: radial-gradient(circle, rgba(228, 37, 53, .13), transparent 64%); }
+.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-header { position: relative; z-index: 1; border-bottom-color: rgba(255, 255, 255, .09); background: rgba(3, 5, 8, .68); }
+.cabinet-page:has(.credit-cabinet-conversation) .cabinet-page-main { position: relative; z-index: 1; }
 .cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link { border-color: rgba(255, 255, 255, .2); color: #e8f1f3; background: rgba(34, 41, 49, .64); }
 .cabinet-page:has(.credit-cabinet-conversation) .cabinet-home-link:hover { border-color: rgba(140, 235, 242, .62); background: rgba(34, 41, 49, .86); }
 .cabinet-page-main:has(.credit-cabinet-conversation) .cabinet-page-note { color: #7e8994; }
@@ -596,6 +606,7 @@ h1, h2, h3 { letter-spacing: -.063em; }
   .float-card-flowers { top: 5%; left: -6%; }
   .float-card-new-place { top: 30%; right: -2%; }
   .float-card-car-wash { bottom: 23%; left: -7%; }
+  .float-card-salon { right: 16%; bottom: 34%; }
   .float-card-shawarma { right: 1%; bottom: 3%; }
   .pain-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pain-card:last-child { grid-column: 1 / -1; min-height: 270px; }
@@ -635,9 +646,9 @@ h1, h2, h3 { letter-spacing: -.063em; }
   .float-card-flowers { top: 2%; left: 2%; }
   .float-card-new-place { top: 27%; right: 2%; }
   .float-card-car-wash { bottom: 22%; left: 2%; }
+  .float-card-salon { top: 4%; right: 24%; bottom: auto; }
   .float-card-shawarma { right: 3%; bottom: 1%; }
   .hero-sparkle-star { top: 10%; right: 12%; font-size: 25px; }
-  .hero-sparkle-gift { right: 13%; bottom: 29%; font-size: 22px; }
   .section-pad { padding-block: 76px; }
   .eyebrow { font-size: 10px; }
   .section-head { margin-bottom: 35px; }
@@ -710,5 +721,12 @@ h1, h2, h3 { letter-spacing: -.063em; }
   .hero-art { right: -25%; width: 135vw; }
   .float-card { font-size: 9px; }
   .float-card-emoji { width: 21px; height: 21px; font-size: 13px; }
-  .hero-sparkle-gift { right: 8%; }
+  .float-card-salon { right: 23%; }
+}
+
+@media (max-width: 590px) {
+  .cabinet-page:has(.credit-cabinet-conversation)::before {
+    --inner-orbit: min(53vw, 210px);
+    --outer-orbit: min(79vw, 310px);
+  }
 }

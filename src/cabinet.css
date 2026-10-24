@@ -533,10 +533,24 @@
 .credit-cabinet-conversation .cabinet-panel-header { display: none; }
 .credit-cabinet-conversation .cabinet-panel-content { padding: 0 20px 6px; scrollbar-color: #506572 #0b1119; }
 .credit-cabinet-conversation .cabinet-workflow { width: 100%; }
-.credit-cabinet-conversation .cabinet-chat { width: min(100%, 900px); margin-inline: auto; padding: 23px 28px 17px; border: 1px solid rgba(140, 235, 242, .16); border-radius: 22px; background: linear-gradient(145deg, rgba(19, 29, 39, .96), rgba(9, 15, 23, .96)); box-shadow: 0 28px 70px rgba(0, 0, 0, .28); }
+.credit-cabinet-conversation .cabinet-chat {
+  width: min(100%, 900px);
+  margin-inline: auto;
+  padding: 23px 28px 17px;
+  border: 0;
+  border-radius: 32px;
+  background: radial-gradient(ellipse 75% 72% at 50% 42%, rgba(20, 37, 48, .6), rgba(11, 22, 32, .28) 62%, transparent 100%);
+  box-shadow: none;
+}
 .credit-cabinet-conversation .cabinet-chat-header { align-items: center; margin-bottom: 14px; }
-.credit-cabinet-conversation .cabinet-chat-thread { padding: 21px 2px 17px; border: 0; border-top: 1px solid rgba(140, 235, 242, .14); border-radius: 0; background: transparent; scrollbar-color: #506572 transparent; }
-.credit-cabinet-conversation .cabinet-chat-reply-area { border-top: 1px solid rgba(140, 235, 242, .14); }
+.credit-cabinet-conversation .cabinet-chat-thread {
+  padding: 21px 2px 17px;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(90deg, transparent, rgba(140, 235, 242, .11) 26%, rgba(140, 235, 242, .11) 74%, transparent) top / 100% 1px no-repeat;
+  scrollbar-color: #506572 transparent;
+}
+.credit-cabinet-conversation .cabinet-chat-reply-area { background: linear-gradient(90deg, transparent, rgba(140, 235, 242, .11) 26%, rgba(140, 235, 242, .11) 74%, transparent) top / 100% 1px no-repeat; }
 .credit-cabinet-conversation .cabinet-chat-choices { padding-top: 16px; }
 .credit-cabinet-conversation .cabinet-recommendations { width: min(100%, 900px); margin: 24px auto 0; padding: 25px; border: 0; border-radius: 17px; color: #20252a; background: #fff; }
 .credit-cabinet-conversation .cabinet-document-plan { width: min(100%, 900px); margin: 20px auto 0; }
@@ -568,4 +582,22 @@
   .cabinet-spinner,
   .cabinet-typing-dots span { animation: none; }
   .cabinet-typing-dots span { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .cabinet-chat-row.is-entering,
+  .cabinet-chat-row.is-intro {
+    animation: cabinet-message-appear .48s cubic-bezier(.2, .8, .25, 1) both;
+  }
+  .cabinet-chat-row.is-user.is-entering { animation-name: cabinet-user-message-appear; }
+}
+
+@keyframes cabinet-message-appear {
+  from { opacity: 0; transform: translateY(12px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cabinet-user-message-appear {
+  from { opacity: 0; transform: translate(8px, 10px) scale(.985); }
+  to { opacity: 1; transform: translate(0, 0) scale(1); }
 }

@@ -131,7 +131,7 @@ function SubmitChecklist({ checklist }) {
 function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepIndex, updateField, busy, onShowOffers, onManualEntry, onMyApplications, onSignOut, recommendations }) {
   const [draftAnswer, setDraftAnswer] = useState('');
   const [answerError, setAnswerError] = useState('');
-  const [typing, setTyping] = useState(false);
+  const [typing, setTyping] = useState(true);
   const [customPurposeText, setCustomPurposeText] = useState('');
   const threadRef = useRef(null);
   const replyAreaRef = useRef(null);
@@ -151,6 +151,12 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
   const currentStep = steps[stepIndex];
   const complete = stepIndex >= steps.length;
   const questionCount = steps.length - (customPurposeText ? 1 : 0);
+  const answeredSteps = steps.slice(0, stepIndex).filter((step) => !(customPurposeText && step.field === 'purposeDescription'));
+  const replyText = complete
+    ? form.purpose === 'other'
+      ? 'Спасибо! Эту цель пока можно сохранить в черновике. Для автоматического подбора выберите одну из пяти поддерживаемых целей.'
+      : 'Спасибо, данные собраны. Сейчас можно посмотреть варианты и выбрать подходящий для заявки.'
+    : currentStep.question;
 
   useEffect(() => {
     setDraftAnswer(currentStep?.field === 'purpose' ? '' : currentStep ? String(form[currentStep.field] ?? '') : '');
@@ -159,17 +165,18 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
 
   useEffect(() => {
     if (!typing) return undefined;
-    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 520;
+    const delay = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 0 : Math.min(1600, 750 + replyText.length * 13);
     const timer = window.setTimeout(() => setTyping(false), delay);
     return () => window.clearTimeout(timer);
-  }, [typing, stepIndex]);
+  }, [typing, stepIndex, replyText]);
 
   useLayoutEffect(() => {
     if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
   }, [stepIndex, typing, busy]);
 
   useEffect(() => {
-    if (typing || stepIndex === 0) return undefined;
+    if (typing) return undefined;
     const frame = window.requestAnimationFrame(() => {
       const target = replyAreaRef.current?.querySelector('button, input')
         || completeActionsRef.current?.querySelector('button');
@@ -244,18 +251,14 @@ function ChatIntake({ form, companyName, bankRelationship, stepIndex, setStepInd
       : currentStep?.field === 'monthlyExpensesRub' ? 'Расходы за месяц, ₽' : 'Своя сумма, ₽';
 
   return <section className="cabinet-chat" aria-label="Диалог по заявке">
-    <header className="cabinet-chat-header"><div><span>ПОМОЩНИК ПО ЗАЯВКЕ</span><h4>Соберём заявку вместе</h4><p>Для {companyName}. Несколько коротких вопросов — ответы можно изменить перед отправкой.</p><div className="cabinet-chat-meta">{bankRelationship === 'external_account' ? 'Счёт в другом банке' : bankRelationship === 'alfa_account' ? 'Счёт в Альфе' : 'Источник оборотов не подтверждён'}</div></div><div className="cabinet-chat-header-actions"><button type="button" onClick={onMyApplications} disabled={Boolean(busy) || typing}>Мои заявки</button><button type="button" onClick={onManualEntry} disabled={Boolean(busy) || typing}>Обычная форма ↗</button><button type="button" onClick={onSignOut} disabled={Boolean(busy) || typing}>Выйти</button></div></header>
+    <header className="cabinet-chat-header"><div><span>ПОМОЩНИК ПО ЗАЯВКЕ</span><h4>Соберём заявку вместе</h4><p>Для {companyName}. Несколько коротких вопросов — ответы можно изменить перед отправкой.</p><div className="cabinet-chat-meta">{bankRelationship === 'external_account' ? 'Счёт в другом банке' : bankRelationship === 'alfa_account' ? 'Счёт в Альфе' : 'Источник оборотов не подтверждён'}</div></div><div className="cabinet-chat-header-actions"><button type="button" onClick={onMyApplications} disabled={Boolean(busy)}>Мои заявки</button><button type="button" onClick={onManualEntry} disabled={Boolean(busy)}>Обычная форма ↗</button><button type="button" onClick={onSignOut} disabled={Boolean(busy)}>Выйти</button></div></header>
     <ol className="cabinet-chat-thread" aria-label="Сообщения" ref={threadRef}>
-      <li className="cabinet-chat-row is-assistant"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">Привет! Я помогу начать заявку. Выберите ответы или введите свои значения — затем подберём вариант или сохраним черновик.</div></li>
-      {steps.slice(0, stepIndex).filter((step) => !(customPurposeText && step.field === 'purposeDescription')).map((step) => <React.Fragment key={step.field}>
+      <li className="cabinet-chat-row is-assistant is-intro"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">Привет! Я помогу начать заявку. Выберите ответы или введите свои значения — затем подберём вариант или сохраним черновик.</div></li>
+      {answeredSteps.map((step, index) => <React.Fragment key={step.field}>
         <li className="cabinet-chat-row is-assistant"><span className="cabinet-chat-avatar" aria-hidden="true" /><div className="cabinet-chat-bubble">{step.question}</div></li>
-        <li className="cabinet-chat-row is-user"><div className="cabinet-chat-bubble">{answerLabel(step.field)}</div></li>
+        <li className={`cabinet-chat-row is-user${index === answeredSteps.length - 1 ? ' is-entering' : ''}`}><div className="cabinet-chat-bubble">{answerLabel(step.field)}</div></li>
       </React.Fragment>)}
-      <li className="cabinet-chat-row is-assistant" aria-live="polite"><span className="cabinet-chat-avatar" aria-hidden="true" />{typing || busy === 'recommendations' ? <div className="cabinet-chat-bubble is-typing" role="status"><span className="cabinet-typing-label">{busy === 'recommendations' ? 'Подбираю варианты' : 'Кот печатает'}</span><span className="cabinet-typing-dots" aria-hidden="true"><span /><span /><span /></span></div> : <div className="cabinet-chat-bubble">{complete
-        ? form.purpose === 'other'
-          ? 'Спасибо! Эту цель пока можно сохранить в черновике. Для автоматического подбора выберите одну из пяти поддерживаемых целей.'
-          : 'Спасибо, данные собраны. Сейчас можно посмотреть варианты и выбрать подходящий для заявки.'
-        : currentStep.question}</div>}</li>
+      <li key={`${stepIndex}-${typing || busy === 'recommendations' ? 'typing' : 'message'}`} className="cabinet-chat-row is-assistant is-entering" aria-live="polite"><span className="cabinet-chat-avatar" aria-hidden="true" />{typing || busy === 'recommendations' ? <div className="cabinet-chat-bubble is-typing" role="status"><span className="cabinet-typing-label">{busy === 'recommendations' ? 'Подбираю варианты' : 'Кот печатает'}</span><span className="cabinet-typing-dots" aria-hidden="true"><span /><span /><span /></span></div> : <div className="cabinet-chat-bubble">{replyText}</div>}</li>
     </ol>
     {!complete && !typing && <div className="cabinet-chat-reply-area" ref={replyAreaRef}>
       {quickReplies.length > 0 && <div className="cabinet-chat-choices" aria-label="Варианты ответа">{quickReplies.map((reply) => <button type="button" key={String(reply.value)} onClick={() => answer(reply.value)} disabled={Boolean(busy)}>{reply.label}</button>)}</div>}

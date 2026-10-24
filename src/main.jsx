@@ -67,7 +67,7 @@ function LandingPage() {
               <div className="float-card float-card-car-wash" aria-hidden="true"><span className="float-card-emoji">🚗</span><span>Автомойка</span></div>
               <div className="float-card float-card-shawarma" aria-hidden="true"><span className="float-card-emoji">🥙</span><span>Шаурмечная</span></div>
               <span className="hero-sparkle hero-sparkle-star" aria-hidden="true">✦</span>
-              <span className="hero-sparkle hero-sparkle-gift" aria-hidden="true">🎁</span>
+              <div className="float-card float-card-salon" aria-hidden="true"><span className="float-card-emoji">💅</span><span>Салон</span></div>
             </div>
           </div>
         </section>
