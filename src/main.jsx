@@ -77,23 +77,35 @@ function LandingPage() {
             <div className="section-head" data-reveal>
               <span className="eyebrow">01 / Узнаёте ситуацию?</span>
               <h2 id="pain-title">Кредитный путь не должен<br />быть <span className="marker">сложнее бизнеса.</span></h2>
-              <p>Важное решение сложно принять, когда информация разрознена, а после отправки заявки начинается тишина.</p>
             </div>
             <div className="pain-grid">
+              <article className="pain-intro-card" data-reveal>
+                <p>Деньги нужны, чтобы развивать дело. До решения хочется понять условия, пройти заявку без лишних шагов и знать, что происходит дальше.</p>
+              </article>
               <article className="pain-card" data-reveal>
-                <span className="card-index">01</span><div className="pain-symbol">?</div>
+                <span className="card-index" aria-hidden="true">1</span>
                 <h3>Какой продукт подойдёт?</h3>
-                <p>Названия похожи, условия разные. Хочется понять выбор на языке своей задачи.</p>
+                <p>Начните с задачи бизнеса — покажем подходящие варианты и объясним различия простыми словами.</p>
               </article>
               <article className="pain-card" data-reveal>
-                <span className="card-index">02</span><div className="pain-symbol">≡</div>
-                <h3>Что нужно заполнить?</h3>
-                <p>Форма просит много данных, но не объясняет, зачем они нужны и что будет дальше.</p>
+                <span className="card-index" aria-hidden="true">2</span>
+                <h3>Что банк уже знает?</h3>
+                <p>Если вы клиент Альфы, данные компании можно использовать в заявке. Остальное спросим по делу.</p>
               </article>
               <article className="pain-card" data-reveal>
-                <span className="card-index">03</span><div className="pain-symbol">…</div>
+                <span className="card-index" aria-hidden="true">3</span>
+                <h3>А если счёт в другом банке?</h3>
+                <p>Заявку можно начать и без счёта в Альфе. Подскажем, какие данные и выписка понадобятся.</p>
+              </article>
+              <article className="pain-card" data-reveal>
+                <span className="card-index" aria-hidden="true">4</span>
                 <h3>Где сейчас заявка?</h3>
-                <p>После отправки важно видеть этап рассмотрения и следующий понятный шаг.</p>
+                <p>Черновик, документы и этап проверки собраны в кабинете. К заявке можно вернуться позже.</p>
+              </article>
+              <article className="pain-card" data-reveal>
+                <span className="card-index" aria-hidden="true">5</span>
+                <h3>Что делать дальше?</h3>
+                <p>Покажем текущий статус и доступное действие, чтобы после отправки вы не остались в неизвестности.</p>
               </article>
             </div>
           </div>
