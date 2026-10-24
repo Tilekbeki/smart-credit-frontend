@@ -227,6 +227,36 @@
 .cabinet-summary span, .cabinet-summary strong { display: block; }
 .cabinet-summary span { margin-bottom: 5px; color: #748187; font-size: 10px; }
 .cabinet-summary strong { font-size: 12px; line-height: 1.35; }
+.cabinet-decision-panel { margin: 0 0 26px; padding: clamp(18px, 3vw, 26px); border: 1px solid #cfe4e6; border-radius: 18px; background: linear-gradient(145deg, #f3fbfb, #fff 74%); }
+.cabinet-decision-panel.is-rejected { border-color: #f0d6d1; background: linear-gradient(145deg, #fff5f2, #fff 74%); }
+.cabinet-decision-heading { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 13px; color: #2a7780; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.cabinet-decision-heading time { color: #74858a; font-weight: 600; letter-spacing: 0; }
+.cabinet-decision-panel h5 { margin: 0 0 15px; font-size: clamp(19px, 2vw, 24px); }
+.cabinet-decision-reasons { margin: 14px 0 20px; }
+.cabinet-decision-reasons > strong { font-size: 12px; }
+.cabinet-decision-reasons ul { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 18px; color: #536a71; font-size: 12px; line-height: 1.5; }
+.cabinet-risk-summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px 12px; margin: 16px 0; padding: 12px 15px; border-radius: 11px; background: #eaf5f6; }
+.cabinet-risk-summary span { color: #486e75; font-size: 11px; }
+.cabinet-risk-summary strong { color: #22555e; font-size: 18px; }
+.cabinet-risk-summary small { flex-basis: 100%; color: #6c7b80; font-size: 10px; }
+.cabinet-processing-detail strong { display: block; font-size: 14px; }
+.cabinet-processing-detail p { margin: 7px 0 0; color: #5e7279; font-size: 12px; line-height: 1.5; }
+.cabinet-processing-detail small { display: block; margin-top: 8px; color: #6c7d83; font-size: 11px; }
+.cabinet-offer { margin-top: 17px; padding: 20px; border: 1px solid #cde4e5; border-radius: 15px; background: #fff; }
+.cabinet-offer-intro { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #2b7078; font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.cabinet-offer-intro strong { color: #28745b; letter-spacing: 0; }
+.cabinet-offer-terms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 19px 0; }
+.cabinet-offer-terms span, .cabinet-offer-terms strong { display: block; }
+.cabinet-offer-terms span { margin-bottom: 5px; color: #738188; font-size: 11px; }
+.cabinet-offer-terms strong { color: #202a30; font-size: clamp(16px, 2vw, 22px); line-height: 1.2; overflow-wrap: anywhere; }
+.cabinet-offer-account-note, .cabinet-offer-result { margin: 12px 0 0; color: #63757c; font-size: 12px; line-height: 1.5; }
+.cabinet-offer-actions, .cabinet-offer-confirm > div { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.cabinet-offer-actions button { min-height: 44px; }
+.cabinet-offer-confirm { margin-top: 19px; padding: 17px; border: 1px solid #ebd5be; border-radius: 13px; background: #fff9f1; }
+.cabinet-offer-confirm strong { color: #5d4030; font-size: 13px; }
+.cabinet-offer-confirm p { margin: 7px 0 0; color: #6f6456; font-size: 12px; line-height: 1.5; }
+.cabinet-offer-confirm > div { align-items: center; margin-top: 14px; }
+.cabinet-offer-confirm .cabinet-text-button { margin-left: 5px; }
 .cabinet-processing-note { display: flex; align-items: center; gap: 13px; margin-bottom: 30px; padding: 14px; border-radius: 12px; color: #685323; background: #fff4de; font-size: 12px; line-height: 1.45; }
 .cabinet-processing-note .cabinet-spinner { width: 22px; height: 22px; border-top-color: #c48519; }
 .cabinet-timeline { margin: 4px 0 0; padding: 0; list-style: none; }
@@ -536,6 +566,9 @@
   .cabinet-chat-complete-actions button { width: 100%; }
   .cabinet-resume, .cabinet-next-action { flex-direction: column; align-items: stretch; }
   .cabinet-resume button, .cabinet-next-action button { width: 100%; }
+  .cabinet-offer-terms { gap: 15px 10px; }
+  .cabinet-offer-actions { display: grid; }
+  .cabinet-offer-actions button { width: 100%; }
   .cabinet-journey ol { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 5px; }
   .cabinet-journey li { min-width: 88px; }
   .cabinet-checklist { padding: 17px; }

@@ -63,7 +63,8 @@ test('company without an Alfa account prepares external turnover evidence before
   });
   assert.equal(getNextAction(turnover, [], [], [], null, 'external_account').kind, 'upload_document');
   assert.equal(getSubmitChecklist(turnover, [{ documentType: 'BANK_STATEMENT' }], [], null, 'external_account').readyToSubmit, true);
-  assert.match(getNextAction({ status: 'approved' }, [], [], [], null, 'external_account').description, /после одобрения/);
+  const activeOffer = { offer: { status: 'active' } };
+  assert.match(getNextAction({ status: 'approved' }, [], [], [], null, 'external_account', activeOffer).description, /фактической выдачи/);
 });
 
 test('missing fields and server-reported company age are actionable without claiming eligibility', () => {
@@ -117,13 +118,18 @@ test('timeline events advance the explanation without treating scoring as a loan
   assert.equal(getNextAction(application, stored).kind, 'wait');
 });
 
-test('submitted, future manual review and final statuses have truthful next steps', () => {
+test('submitted, manual review and final statuses have truthful next steps', () => {
   assert.equal(getJourneyStage({ status: 'submitted' }).id, 'submitted');
   assert.equal(getNextAction({ status: 'manual_review' }).kind, 'wait');
-  assert.equal(getNextAction({ status: 'approved' }).kind, 'offer_unavailable');
-  assert.equal(getNextAction({ status: 'counter_offer' }).kind, 'offer_unavailable');
-  assert.equal(getNextAction({ status: 'rejected' }).kind, 'decision_unavailable');
+  assert.equal(getNextAction({ status: 'approved' }, [], [], [], null, 'unknown', { offer: { status: 'active' } }).kind, 'review_offer');
+  assert.equal(getNextAction({ status: 'counter_offer' }).kind, 'refresh');
+  assert.equal(getNextAction({ status: 'rejected' }).kind, 'finished');
   const signed = getJourneyStage({ status: 'signed' });
-  assert.match(signed.description, /не подтверждает выдачу средств/);
+  assert.match(signed.description, /не означает выдачу средств/);
   assert.equal(getNextAction({ status: 'closed' }).kind, 'finished');
+});
+
+test('live processing stage from the decision endpoint guides the timeline', () => {
+  assert.equal(getJourneyStage({ status: 'processing' }, [], { processing: { stage: 'scoring' } }).id, 'scoring');
+  assert.equal(getJourneyStage({ status: 'processing' }, [], { processing: { stage: 'decision' } }).id, 'awaiting_decision');
 });

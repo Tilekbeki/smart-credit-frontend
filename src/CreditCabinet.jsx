@@ -31,7 +31,11 @@ const STATUS_NAMES = {
 const formatRub = (value) => value == null ? '—' : `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
 const formatDate = (value) => value ? new Date(value).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const shortId = (id) => id?.slice(0, 8).toUpperCase() || '—';
-const isProcessing = (status) => status === 'submitted' || status === 'processing';
+const isAwaitingDecision = (status) => ['submitted', 'processing', 'manual_review'].includes(status);
+const withNewerDecisionStatus = (application, decision) => decision?.applicationId === application.applicationId
+  && decision.version > application.version
+  ? { ...application, status: decision.status, version: decision.version }
+  : application;
 const accountPath = (value) => ['alfa_account', 'external_account'].includes(value) ? value : 'unknown';
 const initialForm = (company) => ({
   productId: null,
@@ -108,6 +112,35 @@ function ErrorNotice({ error, details }) {
 
 function LoadingCard({ title, detail }) {
   return <div className="cabinet-loading" role="status" aria-live="polite"><span className="cabinet-spinner" aria-hidden="true" /><strong>{title}</strong><p>{detail}</p></div>;
+}
+
+function DecisionPanel({ decision, bankRelationship, choice, onChoose, onConfirm, busy }) {
+  if (!decision) return null;
+  const { status, offer, processing, reasons = [] } = decision;
+  const riskName = { LOW: 'Низкий', MEDIUM: 'Средний', HIGH: 'Высокий' }[decision.riskLevel];
+  const hasFinalDecision = ['approved', 'counter_offer', 'rejected', 'signed', 'closed'].includes(status);
+  const manualReview = status === 'manual_review';
+  if (!hasFinalDecision && !processing && !manualReview) return null;
+
+  return <section className={`cabinet-decision-panel is-${status}`} aria-label="Решение по заявке" aria-live="polite">
+    <div className="cabinet-decision-heading"><span>{hasFinalDecision ? 'РЕШЕНИЕ ПО ЗАЯВКЕ' : 'ХОД ПРОВЕРКИ'}</span>{decision.assessedAt && <time dateTime={decision.assessedAt}>{formatDate(decision.assessedAt)}</time>}</div>
+    {processing && <div className="cabinet-processing-detail"><strong>{processing.state === 'retrying' ? 'Проверка повторяется автоматически' : processing.state === 'failed' ? 'Проверка временно остановилась' : 'Проверка продолжается'}</strong><p>{processing.message || 'Заявка обрабатывается. Обновления появятся в кабинете.'}</p>{processing.retryAt && <small>Следующая попытка: {formatDate(processing.retryAt)}</small>}</div>}
+    {manualReview && <div className="cabinet-processing-detail"><strong>Заявку рассматривает сотрудник банка</strong><p>Решение ещё не принято. Как только оно появится, здесь отобразятся причины и дальнейшие действия.</p></div>}
+    {decision.score != null && <div className="cabinet-risk-summary"><span>Учебная оценка</span><strong>{decision.score} / 100</strong>{riskName && <span>Уровень риска: {riskName.toLowerCase()}</span>}<small>Это один из факторов проверки, не кредитное решение.</small></div>}
+    {manualReview && reasons.length > 0 && <div className="cabinet-decision-reasons"><strong>Что требует дополнительной проверки</strong><ul>{reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul></div>}
+    {hasFinalDecision && <>
+      <h5>{status === 'rejected' ? 'По заявке принято решение об отказе' : status === 'signed' ? 'Условия подтверждены' : status === 'closed' ? 'Предложение отклонено' : status === 'counter_offer' ? 'Банк предложил другие условия' : 'Заявка одобрена'}</h5>
+      {reasons.length > 0 && <div className="cabinet-decision-reasons"><strong>Почему принято такое решение</strong><ul>{reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul></div>}
+      {offer && <div className="cabinet-offer"><div className="cabinet-offer-intro"><span>ПРЕДЛОЖЕНИЕ БАНКА</span><strong>{offer.status === 'accepted' ? 'Принято' : offer.status === 'withdrawn' ? 'Отклонено' : 'Доступно для ответа'}</strong></div><div className="cabinet-offer-terms"><div><span>Сумма кредита</span><strong>{formatRub(offer.amountRub)}</strong></div><div><span>Срок</span><strong>{offer.termMonths} мес.</strong></div><div><span>Ставка в год</span><strong>{offer.annualRatePercent}%</strong></div><div><span>Платёж в месяц</span><strong>{formatRub(offer.monthlyPaymentRub)}</strong></div></div>
+        {bankRelationship === 'external_account' && offer.status === 'active' && <p className="cabinet-offer-account-note">Для фактической выдачи кредита понадобится счёт бизнеса в Альфа-Банке. Сейчас можно рассмотреть предложение.</p>}
+        {offer.status === 'active' && ['approved', 'counter_offer'].includes(status) && <><div className="cabinet-offer-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={() => onChoose('accept')} disabled={Boolean(busy)}>Принять условия ↗</Button><Button view="secondary" type="button" onClick={() => onChoose('decline')} disabled={Boolean(busy)}>Отклонить предложение</Button></div>
+          {choice && <div className="cabinet-offer-confirm" role="group" aria-label="Подтверждение действия"><strong>{choice === 'accept' ? 'Подтвердить принятие условий?' : 'Отклонить это предложение?'}</strong><p>{choice === 'accept' ? 'В кабинете сохранится подтверждение учебных условий. Выдача средств этим действием не выполняется.' : 'Заявка будет закрыта, а предложение больше не будет доступно.'}</p><div><Button className={choice === 'accept' ? 'cabinet-primary-button' : ''} view={choice === 'accept' ? 'primary' : 'secondary'} type="button" onClick={() => onConfirm(choice)} disabled={Boolean(busy)}>{busy === `offer-${choice}` ? 'Сохраняем ответ…' : choice === 'accept' ? 'Да, принять условия' : 'Да, отклонить'}</Button><button className="cabinet-text-button" type="button" onClick={() => onChoose(null)} disabled={Boolean(busy)}>Отмена</button></div></div>}
+        </>}
+      </div>}
+      {status === 'signed' && <p className="cabinet-offer-result">Ваш ответ сохранён. Подтверждение условий не означает выдачу кредита или перевод средств.</p>}
+      {status === 'closed' && <p className="cabinet-offer-result">Вы отклонили предложение. Заявка закрыта.</p>}
+    </>}
+  </section>;
 }
 
 function JourneyProgress({ stage }) {
@@ -286,6 +319,8 @@ export default function CreditCabinet() {
   const [applications, setApplications] = useState([]);
   const [applicationsTotal, setApplicationsTotal] = useState(0);
   const [selected, setSelected] = useState(null);
+  const [creditDecision, setCreditDecision] = useState(null);
+  const [offerChoice, setOfferChoice] = useState(null);
   const [timeline, setTimeline] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [form, setForm] = useState(() => ({ ...initialForm(null), purpose: selectedLandingPurpose() || 'stock' }));
@@ -307,6 +342,7 @@ export default function CreditCabinet() {
   const formRef = useRef(null);
   const submitRef = useRef(null);
   const panelContentRef = useRef(null);
+  const offerActionRef = useRef(null);
 
   const reportError = (failure, fallback = 'Не удалось выполнить действие.') => {
     setError(failure?.message || fallback);
@@ -329,6 +365,9 @@ export default function CreditCabinet() {
       setUser(null);
       setCompany(null);
       setSelected(null);
+      setCreditDecision(null);
+      setOfferChoice(null);
+      offerActionRef.current = null;
       setApplications([]);
       setApplicationsTotal(0);
       setDocuments([]);
@@ -364,33 +403,39 @@ export default function CreditCabinet() {
   }, []);
 
   const refreshSelected = useCallback(async (applicationId) => {
-    const [application, events, uploaded] = await Promise.all([
+    const [application, events, uploaded, decision] = await Promise.all([
       api.getApplication(applicationId),
       api.getApplicationTimeline(applicationId),
       api.listDocuments(applicationId),
+      api.getApplicationDecision(applicationId),
     ]);
-    setSelected(application);
+    const currentApplication = withNewerDecisionStatus(application, decision);
+    setSelected(currentApplication);
+    setCreditDecision(decision);
     setTimeline([...(events.items || [])].sort((a, b) => a.sequence - b.sequence));
     setDocuments(uploaded.items || []);
-    return application;
+    return currentApplication;
   }, []);
 
   useEffect(() => {
-    if (!selected?.applicationId || !isProcessing(selected.status)) return undefined;
+    if (!selected?.applicationId || !isAwaitingDecision(selected.status)) return undefined;
     let active = true;
     let polling = false;
     const timer = window.setInterval(async () => {
       if (polling) return;
       polling = true;
       try {
-        const [application, events] = await Promise.all([
+        const [application, events, decision] = await Promise.all([
           api.getApplication(selected.applicationId),
           api.getApplicationTimeline(selected.applicationId),
+          api.getApplicationDecision(selected.applicationId),
         ]);
         if (!active) return;
-        setSelected(application);
+        const currentApplication = withNewerDecisionStatus(application, decision);
+        setSelected(currentApplication);
+        setCreditDecision(decision);
         setTimeline([...(events.items || [])].sort((a, b) => a.sequence - b.sequence));
-        if (!isProcessing(application.status)) await loadApplications(0);
+        if (!isAwaitingDecision(currentApplication.status)) await loadApplications(0);
       } catch (failure) {
         if (active && failure.status !== 401) reportError(failure, 'Не удалось обновить статус.');
       } finally { polling = false; }
@@ -543,6 +588,9 @@ export default function CreditCabinet() {
     setUser(null);
     setCompany(null);
     setSelected(null);
+    setCreditDecision(null);
+    setOfferChoice(null);
+    offerActionRef.current = null;
     setApplications([]);
     setApplicationsTotal(0);
     setDocuments([]);
@@ -570,6 +618,9 @@ export default function CreditCabinet() {
     if (!confirmLeaveForm()) return;
     clearMessages();
     setSelected(null);
+    setCreditDecision(null);
+    setOfferChoice(null);
+    offerActionRef.current = null;
     setDocuments([]);
     setTimeline([]);
     const startingForm = initialForm(company);
@@ -615,6 +666,8 @@ export default function CreditCabinet() {
   const chooseApplication = async (applicationId) => {
     if (!confirmLeaveForm()) return;
     clearMessages();
+    setOfferChoice(null);
+    offerActionRef.current = null;
     setBusy('opening');
     try {
       const application = await refreshSelected(applicationId);
@@ -807,6 +860,51 @@ export default function CreditCabinet() {
     finally { setBusy(''); }
   };
 
+  const answerOffer = async (action) => {
+    const offer = creditDecision?.offer;
+    if (!selected?.applicationId || !offer || offer.status !== 'active'
+      || !['approved', 'counter_offer'].includes(creditDecision.status)
+      || !['accept', 'decline'].includes(action)) return;
+    const signature = `${selected.applicationId}:${action}:${creditDecision.version}:${offer.offerId}`;
+    if (offerActionRef.current?.signature !== signature) {
+      offerActionRef.current = { signature, key: window.crypto.randomUUID() };
+    }
+    const idempotencyKey = offerActionRef.current.key;
+    const applicationId = selected.applicationId;
+    clearMessages();
+    setBusy(`offer-${action}`);
+    let updatedDecision;
+    try {
+      const payload = { version: creditDecision.version, offerId: offer.offerId };
+      updatedDecision = await (action === 'accept' ? api.acceptOffer : api.declineOffer)(applicationId, payload, idempotencyKey);
+    } catch (failure) {
+      if (failure?.status === 409) {
+        try {
+          await refreshSelected(applicationId);
+          setOfferChoice(null);
+          offerActionRef.current = null;
+          setNotice('Предложение изменилось. Проверьте актуальные условия и выберите действие снова.');
+        } catch (refreshFailure) { reportError(refreshFailure, 'Не удалось обновить предложение.'); }
+      } else {
+        reportError(failure, 'Не удалось сохранить ответ. Попробуйте ещё раз.');
+      }
+      setBusy('');
+      return;
+    }
+    setCreditDecision(updatedDecision);
+    setSelected((previous) => ({ ...previous, status: updatedDecision.status, version: updatedDecision.version }));
+    setOfferChoice(null);
+    offerActionRef.current = null;
+    setNotice(action === 'accept'
+      ? 'Условия подтверждены и сохранены в кабинете. Выдача средств не выполнялась.'
+      : 'Предложение отклонено. Заявка закрыта.');
+    try {
+      await Promise.all([refreshSelected(applicationId), loadApplications(0)]);
+    } catch (failure) {
+      setNotice('Ваш ответ сохранён. Обновить данные заявки пока не удалось; проверьте их чуть позже.');
+    } finally { setBusy(''); }
+  };
+
   const loadMore = async () => {
     clearMessages();
     setBusy('list');
@@ -827,8 +925,8 @@ export default function CreditCabinet() {
   const selectedProduct = products.find((product) => product.id === selected?.productId) || null;
   const formProduct = products.find((product) => product.id === form.productId) || null;
   const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct, bankRelationship);
-  const journeyStage = selected ? getJourneyStage(selected, timeline) : null;
-  const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct, bankRelationship) : null;
+  const journeyStage = selected ? getJourneyStage(selected, timeline, creditDecision) : null;
+  const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct, bankRelationship, creditDecision) : null;
   const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
   const draftToContinue = applications.filter((item) => item.status === 'draft')
     .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
@@ -992,7 +1090,8 @@ export default function CreditCabinet() {
       <p className="cabinet-description">{journeyStage?.description}</p>
       {nextAction && <div className="cabinet-next-action"><div><span>{nextAction.kind === 'wait' ? 'СЕЙЧАС ДЕЙСТВУЕТ БАНК' : 'СЛЕДУЮЩИЙ ШАГ'}</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div></div>}
       <div className="cabinet-summary"><div><span>Компания</span><strong>{company?.name}</strong></div><div><span>Продукт</span><strong>{selected.productName || '—'}</strong></div><div><span>Сумма</span><strong>{formatRub(selected.requestedAmountRub)}</strong></div><div><span>Срок</span><strong>{selected.termMonths ? `${selected.termMonths} мес.` : '—'}</strong></div><div><span>Отправлена</span><strong>{formatDate(selected.submittedAt)}</strong></div></div>
-      {isProcessing(selected.status) && <div className="cabinet-processing-note" role="status"><span className="cabinet-spinner" aria-hidden="true" /><span>Статус обновляется каждые 5 секунд. Кредитное решение пока не опубликовано.</span></div>}
+      <DecisionPanel decision={creditDecision} bankRelationship={bankRelationship} choice={offerChoice} onChoose={setOfferChoice} onConfirm={answerOffer} busy={busy} />
+      {isAwaitingDecision(selected.status) && <div className="cabinet-processing-note" role="status"><span className="cabinet-spinner" aria-hidden="true" /><span>Статус обновляется каждые 5 секунд. {selected.status === 'manual_review' ? 'Заявка находится на рассмотрении сотрудника банка.' : 'Окончательное решение пока не опубликовано.'}</span></div>}
       <div className="cabinet-section-head"><h4>История заявки</h4><Button view="secondary" type="button" onClick={async () => { setBusy('refresh'); try { await refreshSelected(selected.applicationId); } catch (failure) { reportError(failure); } finally { setBusy(''); } }} disabled={Boolean(busy)}>{busy === 'refresh' ? 'Обновляем…' : 'Обновить'}</Button></div>
       {timeline.length === 0 ? <p className="cabinet-helper">События пока не появились.</p> : <ol className="cabinet-timeline">{timeline.map((event) => <li key={event.eventId}><span className="cabinet-timeline-dot" aria-hidden="true" /><div><strong>{event.title}</strong><time dateTime={event.createdAt}>{formatDate(event.createdAt)}</time></div></li>)}</ol>}
       <div className="cabinet-documents"><div className="cabinet-section-head"><h4>Документы</h4></div><DocumentList documents={documents} download={download} busy={busy} bankRelationship={bankRelationship} /></div>

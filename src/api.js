@@ -135,6 +135,16 @@ export function listApplications({ status, limit, offset } = {}) {
 export const getApplication = (id) => requestApi(applicationPath(id));
 export const updateApplication = (id, patch) => jsonRequest(applicationPath(id), 'PATCH', patch);
 export const getApplicationTimeline = (id) => requestApi(`${applicationPath(id)}/timeline`);
+export const getApplicationDecision = (id) => requestApi(`${applicationPath(id)}/decision`);
+
+function offerAction(id, action, { version, offerId }, idempotencyKey) {
+  return jsonRequest(`${applicationPath(id)}/${action}`, 'POST', { version, offerId }, {
+    headers: { 'Idempotency-Key': idempotencyKey },
+  });
+}
+
+export const acceptOffer = (id, input, idempotencyKey) => offerAction(id, 'accept', input, idempotencyKey);
+export const declineOffer = (id, input, idempotencyKey) => offerAction(id, 'decline', input, idempotencyKey);
 
 export function uploadDocument(id, documentType, file) {
   const body = new FormData();

@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   ApiError,
+  acceptOffer,
   createApplication,
+  declineOffer,
   downloadDocument,
+  getApplicationDecision,
   getAccessToken,
   getProfiles,
   listApplications,
@@ -88,6 +91,33 @@ test('submit sends no body or JSON Content-Type', async () => {
   }, async () => {
     assert.deepEqual(await submitApplication('draft-1'), { status: 'submitted' });
   });
+});
+
+test('decision read and offer actions use the frozen API contract and idempotency keys', async () => {
+  setAccessToken('jwt');
+  const calls = [];
+  await withFetch(async (url, options) => {
+    calls.push({ url, options });
+    return Response.json({ applicationId: 'draft-1', status: 'approved' });
+  }, async () => {
+    await getApplicationDecision('draft-1');
+    await acceptOffer('draft-1', { version: 5, offerId: 'offer-1' }, 'key-accept');
+    await declineOffer('draft-1', { version: 5, offerId: 'offer-1' }, 'key-decline');
+  });
+
+  assert.deepEqual(calls.map(({ url }) => url), [
+    '/api/v1/applications/draft-1/decision',
+    '/api/v1/applications/draft-1/accept',
+    '/api/v1/applications/draft-1/decline',
+  ]);
+  assert.ok(calls.every(({ options }) => options.headers.get('Authorization') === 'Bearer jwt'));
+  assert.equal(calls[0].options.method, undefined);
+  assert.equal(calls[0].options.headers.has('Idempotency-Key'), false);
+  for (const [index, key] of [[1, 'key-accept'], [2, 'key-decline']]) {
+    assert.equal(calls[index].options.method, 'POST');
+    assert.equal(calls[index].options.headers.get('Idempotency-Key'), key);
+    assert.deepEqual(JSON.parse(calls[index].options.body), { version: 5, offerId: 'offer-1' });
+  }
 });
 
 test('document upload uses exactly two multipart fields and download uses authenticated binary fetch', async () => {

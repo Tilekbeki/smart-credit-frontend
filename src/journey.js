@@ -19,10 +19,10 @@ const STAGES = {
   scoring: ['Идёт оценка', 'Оценка началась. Её результат ещё не сохранён; повторные попытки не означают отказ.', 3],
   awaiting_decision: ['Ожидается решение', 'Результат оценки сохранён. Кредитное решение ещё не опубликовано.', 4],
   manual_review: ['Рассматривает сотрудник банка', 'Заявка передана на ручное рассмотрение. Решение ещё не опубликовано.', 4],
-  approved: ['Одобрена', 'Банк зарегистрировал решение об одобрении. Проверьте условия предложения, когда они станут доступны.', 4],
-  counter_offer: ['Предложены другие условия', 'Банк зарегистрировал альтернативные условия. Подробности предложения пока недоступны в этом кабинете.', 4],
-  rejected: ['Отказано', 'Банк зарегистрировал отказ. Подробности решения пока недоступны в этом кабинете.', 4],
-  signed: ['Условия подтверждены', 'Условия подтверждены в рамках проекта. Этот статус не подтверждает выдачу средств.', 4],
+  approved: ['Одобрена', 'Решение готово. Проверьте предложение банка и выберите дальнейшее действие.', 4],
+  counter_offer: ['Предложены другие условия', 'Банк предложил другие сумму или срок. Сравните условия с вашей заявкой.', 4],
+  rejected: ['Отказано', 'Решение готово. Причины указаны ниже в ответе банка.', 4],
+  signed: ['Условия подтверждены', 'Вы подтвердили учебные условия. Этот статус не означает выдачу средств.', 4],
   closed: ['Заявка закрыта', 'Клиент отклонил предложение; дальнейших действий по этой заявке нет.', 4],
   unknown: ['Статус уточняется', 'Обновите заявку, чтобы увидеть актуальное состояние.', -1],
 };
@@ -93,9 +93,10 @@ export function getSubmitChecklist(application, documents = [], validationDetail
 }
 
 /** Derive a truthful journey stage from the persisted status and event types. */
-export function getJourneyStage(application, timeline = []) {
+export function getJourneyStage(application, timeline = [], creditDecision = null) {
   const status = application?.status;
   const events = new Set(asItems(timeline).map((event) => event.eventType));
+  const processingStage = creditDecision?.processing?.stage;
   let id;
 
   if (['manual_review', 'approved', 'counter_offer', 'rejected', 'signed', 'closed'].includes(status)) {
@@ -103,7 +104,8 @@ export function getJourneyStage(application, timeline = []) {
   } else if (status === 'draft') {
     id = 'draft';
   } else if (status === 'submitted' || status === 'processing') {
-    if (events.has('SCORING_COMPLETED')) id = 'awaiting_decision';
+    if (processingStage === 'decision' || events.has('SCORING_COMPLETED')) id = 'awaiting_decision';
+    else if (processingStage === 'scoring') id = 'scoring';
     else if (events.has('SCORING_STARTED')) id = 'scoring';
     else if (events.has('PRECHECKS_COMPLETED')) id = 'awaiting_scoring';
     else if (status === 'processing' || events.has('PROCESSING_STARTED')) id = 'prechecks';
@@ -127,7 +129,7 @@ export function getJourneyStage(application, timeline = []) {
 }
 
 /** One actionable next step, or an explicit wait state where no action exists. */
-export function getNextAction(application, timeline = [], documents = [], validationDetails = [], product = null, bankRelationship = 'unknown') {
+export function getNextAction(application, timeline = [], documents = [], validationDetails = [], product = null, bankRelationship = 'unknown', creditDecision = null) {
   if (!application) return { kind: 'start', label: 'Начать заявку', description: 'Укажите цель, сумму и срок.' };
 
   if (application.status === 'draft') {
@@ -149,7 +151,7 @@ export function getNextAction(application, timeline = [], documents = [], valida
     };
   }
 
-  const stage = getJourneyStage(application, timeline);
+  const stage = getJourneyStage(application, timeline, creditDecision);
   const waiting = {
     submitted: 'Ожидайте начала предварительных проверок.',
     prechecks: 'Предварительные проверки идут автоматически.',
@@ -161,14 +163,16 @@ export function getNextAction(application, timeline = [], documents = [], valida
   if (waiting[stage.id]) return { kind: 'wait', label: 'Следите за статусом', description: waiting[stage.id] };
   if (stage.id === 'approved' || stage.id === 'counter_offer') {
     return {
-      kind: 'offer_unavailable',
-      label: 'Ожидайте доступа к условиям',
-      description: bankRelationship === 'external_account'
-        ? 'Для выдачи понадобится счёт бизнеса в Альфа-Банке; открыть его можно после одобрения. Просмотр и принятие предложения пока недоступны.'
-        : 'Просмотр и принятие предложения в этом кабинете пока недоступны.',
+      kind: creditDecision?.offer?.status === 'active' ? 'review_offer' : 'refresh',
+      label: creditDecision?.offer?.status === 'active' ? 'Рассмотреть предложение' : 'Обновить предложение',
+      description: creditDecision?.offer?.status === 'active'
+        ? bankRelationship === 'external_account'
+          ? 'Проверьте сумму, срок и платёж. Для фактической выдачи понадобится счёт бизнеса в Альфа-Банке.'
+          : 'Проверьте сумму, срок и платёж, затем примите или отклоните условия.'
+        : 'Актуальные условия пока не загрузились. Обновите заявку.',
     };
   }
-  if (stage.id === 'rejected') return { kind: 'decision_unavailable', label: 'Решение зарегистрировано', description: 'Подробности решения в этом кабинете пока недоступны.' };
+  if (stage.id === 'rejected') return { kind: 'finished', label: 'Решение банка', description: 'Причины решения приведены ниже. Действий по этой заявке больше нет.' };
   if (stage.id === 'signed' || stage.id === 'closed') return { kind: 'finished', label: 'Действий не требуется', description: stage.description };
   return { kind: 'refresh', label: 'Обновить заявку', description: stage.description };
 }
