@@ -49,8 +49,8 @@
 .bank-manual-review legend { margin-bottom: 10px; font-size: 13px; font-weight: 700; }
 .bank-decision-options { display: flex; flex-wrap: wrap; gap: 10px; }
 .bank-decision-options label { display: inline-flex; align-items: center; gap: 8px; padding: 13px 15px; border: 1px solid var(--cabinet-line); border-radius: 12px; cursor: pointer; font-size: 13px; }
-.bank-decision-options label:has(input:checked) { border-color: var(--cabinet-red); background: #fff3f1; }
-.bank-decision-options input { accent-color: var(--cabinet-red); }
+.bank-decision-options label:has(input:checked) { border-color: var(--cabinet-focus); background: #ededf0; }
+.bank-decision-options input { accent-color: var(--cabinet-focus); }
 .bank-original-terms { margin: 0; font-size: 14px; line-height: 1.6; }
 .bank-manual-review .cabinet-helper { margin: -10px 0 0; }
 .bank-manual-review form > button { justify-self: start; }
