@@ -7,6 +7,7 @@ import GuestChat from './GuestChat';
 import BankCabinet from './BankCabinet';
 import ContactSettings from './ContactSettings';
 import { fetchVisibleApplications } from './list-window';
+import { recommendationInput, sendChatApplication } from './chat-recommendations';
 import './cabinet.css';
 
 const GOALS = [
@@ -169,6 +170,10 @@ export default function CreditCabinet() {
   const [profiles, setProfiles] = useState([]);
   const [authStage, setAuthStage] = useState('intro');
   const [guestProgress, setGuestProgress] = useState(null);
+  const [chatForm, setChatForm] = useState(initialForm);
+  const [chatHistory, setChatHistory] = useState(null);
+  const chatReturnScreen = useRef('list');
+  const chatSending = useRef(false);
   const [phone, setPhone] = useState('');
   const [chosenProfile, setChosenProfile] = useState(null);
   const [otpRequest, setOtpRequest] = useState(null);
@@ -249,6 +254,7 @@ export default function CreditCabinet() {
       setScreen('new');
       guestPrefillRef.current = null;
       setGuestProgress(null);
+      setChatForm(initialForm()); setChatHistory(null);
       setConflictedForm(null);
       setContactsDirty(false); setBankRelationship('unknown'); setDeleteTarget(null); setSavedNewForm(null); setDraftLimitReached(false);
       setBusy('');
@@ -396,7 +402,10 @@ export default function CreditCabinet() {
       setApplicationsTotal(page.total || 0);
       const startingForm = initialFormAfterSignIn(currentCompany, productList.items || []);
       const guestPrefill = guestPrefillRef.current;
-      setForm(guestPrefill ? { ...startingForm, ...guestPrefill, productId: null } : startingForm);
+      setForm(startingForm);
+      setChatForm(guestPrefill ? { ...startingForm, ...guestPrefill.form, productId: null } : initialForm());
+      setChatHistory(guestPrefill?.progress || null);
+      chatReturnScreen.current = (page.items || []).length ? 'list' : 'new';
       setNewFormBaseline(startingForm);
       guestPrefillRef.current = null;
       setGuestProgress(null);
@@ -404,7 +413,7 @@ export default function CreditCabinet() {
       setDocuments([]);
       setTimeline([]);
       setRecommendations(null);
-      setScreen(guestPrefill || selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
+      setScreen(guestPrefill ? 'chat' : selectedLandingPurpose() || !(page.items || []).length ? 'new' : 'list');
       setConflictedForm(null);
       setAuthStage('ready');
       setOtpRequest(null);
@@ -472,6 +481,7 @@ export default function CreditCabinet() {
     setScreen('new');
     guestPrefillRef.current = null;
     setGuestProgress(null);
+    setChatForm(initialForm()); setChatHistory(null);
     setChosenProfile(null);
     setOtpRequest(null);
     setCode('');
@@ -821,6 +831,63 @@ export default function CreditCabinet() {
     clearMessages(); setNotice('Выручка и расходы подставлены из профиля. Проверьте их перед сохранением заявки.');
   };
 
+  const openChat = () => {
+    if (!confirmLeaveForm()) return;
+    clearMessages();
+    chatReturnScreen.current = screen;
+    setScreen('chat');
+  };
+
+  const sendFromChat = async (productId, answers) => {
+    if (chatSending.current || user?.role !== 'CLIENT') return;
+    recommendationInput(answers);
+    const validation = validateForm(answers, { forRecommendation: true });
+    if (validation) throw new Error(validation);
+    chatSending.current = true;
+    setBusy('chat-submit');
+    clearMessages();
+    try {
+      const outcome = await sendChatApplication(api, payloadFromForm({ ...answers, productId }));
+      const saved = outcome.application;
+      setApplications((previous) => [saved, ...previous.filter((item) => item.applicationId !== saved.applicationId)]);
+      setApplicationsTotal((previous) => previous + 1);
+      setSelected(saved); setCreditDecision(null); setOfferChoice(null); offerActionRef.current = null;
+      setForm(formFromApplication(saved)); setDocuments([]); setTimeline([]); setRecommendations(null);
+      setFile(null); setConflictedForm(null); setContactsDirty(false); setDeleteTarget(null); setDraftLimitReached(false);
+      const missingDocument = outcome.failure?.details?.find((item) => item.field?.startsWith('documents.'));
+      setDocumentType(missingDocument ? missingDocument.field.split('.')[1] : productId === 'investment' ? 'EQUIPMENT_INVOICE' : 'BANK_STATEMENT');
+      setScreen('application');
+      // Clear completed chat input so reopening the chat cannot resubmit this application.
+      setChatHistory(null); setChatForm(initialForm());
+      setNotice(outcome.submitted
+        ? 'Заявка отправлена на согласование. Следите за решением и дальнейшими действиями здесь.'
+        : missingDocument
+          ? 'Черновик сохранён. Загрузите нужный документ и отправьте заявку на согласование.'
+          : 'Заявка сохранена в кабинете. Проверьте её статус перед повторной отправкой.');
+      if (missingDocument) setDetails(outcome.failure.details);
+      else if (outcome.failure) reportError(outcome.failure);
+      try {
+        await refreshSelected(saved.applicationId);
+        await loadApplications(0);
+      } catch {
+        setNotice(outcome.submitted ? 'Заявка отправлена. Обновить историю пока не удалось; проверьте её чуть позже.' : 'Черновик сохранён. Обновить данные пока не удалось; откройте заявку из списка.');
+      }
+      if (missingDocument) window.requestAnimationFrame(() => {
+        documentsRef.current?.scrollIntoView({ block: 'center', behavior: 'auto' });
+        fileInputRef.current?.focus({ preventScroll: true });
+      });
+    } catch (failure) {
+      if (failure.code === 'draft_limit_reached') {
+        setForm({ ...answers, productId }); setNewFormBaseline(initialForm()); setSelected(null);
+        setCreditDecision(null); setDocuments([]); setTimeline([]); setRecommendations(null);
+        setConflictedForm(null); setContactsDirty(false); setDeleteTarget(null); setFile(null);
+        setDraftLimitReached(true); setScreen('new'); reportError(failure);
+      } else {
+        throw failure;
+      }
+    } finally { chatSending.current = false; setBusy(''); }
+  };
+
   const currentPayload = payloadFromForm(form);
   const editableFields = numericFields.concat(['productId', 'purpose', 'purposeDescription']);
   const hasUnsavedChanges = screen === 'application' && selected?.status === 'draft' && editableFields
@@ -865,7 +932,7 @@ export default function CreditCabinet() {
     onFieldChange={updateField}
     initialProgress={guestProgress}
     onProgressChange={setGuestProgress}
-    onContinue={() => { guestPrefillRef.current = { ...form }; clearMessages(); setAuthStage('phone'); }}
+    onContinue={() => { guestPrefillRef.current = { form: { ...form }, progress: guestProgress }; clearMessages(); setAuthStage('phone'); }}
     onSignIn={() => { guestPrefillRef.current = null; clearMessages(); setAuthStage('phone'); }}
   />;
 
@@ -900,12 +967,21 @@ export default function CreditCabinet() {
 
   if (user?.role === 'BANK_EMPLOYEE') return <BankCabinet user={user} onSignOut={signOut} />;
 
+  if (screen === 'chat') return <GuestChat
+    key="authenticated-chat" authenticated company={company} form={chatForm}
+    onFieldChange={(field, value) => setChatForm((previous) => ({ ...previous, [field]: value, ...(field === 'purpose' && value !== 'other' ? { purposeDescription: '' } : {}) }))}
+    initialProgress={chatHistory} onProgressChange={setChatHistory}
+    onRecommend={api.getRecommendations} onSubmitApplication={sendFromChat}
+    onBackToCabinet={() => setScreen(chatReturnScreen.current)} busy={Boolean(busy)}
+  />;
+
   return <div className="credit-cabinet credit-cabinet-dashboard">
     <aside className="cabinet-sidebar" aria-label="Компания и разделы">
     <div className="cabinet-account"><div><span className="cabinet-account-kicker">ВАША КОМПАНИЯ</span><h3>{company?.name}</h3><p>{user?.name} · ИНН {company?.inn}</p></div></div>
     <div className="cabinet-tabs" role="navigation" aria-label="Разделы кабинета">
       <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew} disabled={Boolean(busy)}>Новая заявка</button>
       <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={goToList} disabled={Boolean(busy)}>Мои заявки <span>{applicationsTotal}</span></button>
+      <button type="button" onClick={openChat} disabled={Boolean(busy)}>Подобрать в чате</button>
       <button type="button" className={screen === 'contacts' ? 'active' : ''} onClick={openContacts} disabled={Boolean(busy)}>Контакты и данные</button>
     </div>
     <details className="cabinet-account-details"><summary>Данные о счёте</summary><div className="cabinet-account-preference"><label htmlFor="account-relationship">Где открыт счёт бизнеса?</label><select id="account-relationship" value={bankRelationship} disabled={Boolean(busy)} onChange={(event) => { const value = accountPath(event.target.value); setBankRelationship(value); try { localStorage.setItem(`smart-credit-account:${company.id}`, value); } catch { /* The optional preference also works in memory. */ } }}><option value="unknown">Укажу позже</option><option value="alfa_account">В Альфа-Банке</option><option value="external_account">В другом банке</option></select><p>Ваш выбор сохраняется в этом браузере и помогает с подсказками. Нужные документы банк проверит при отправке заявки.</p></div></details>
