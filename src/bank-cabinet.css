@@ -2,6 +2,16 @@
 .bank-toolbar { display: flex; align-items: end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .bank-toolbar label { display: grid; gap: 7px; color: var(--cabinet-muted); font-size: 12px; }
 .bank-toolbar select { min-height: 44px; max-width: 100%; padding: 0 36px 0 12px; border: 1px solid var(--cabinet-line); border-radius: 12px; color: var(--cabinet-ink); background: var(--cabinet-soft); font: inherit; }
+.bank-filters { display: flex; flex-wrap: wrap; gap: 14px; min-width: 0; }
+.bank-filters label { min-width: 0; max-width: 100%; }
+.bank-assessment-source { margin-top: 20px; padding: 20px; border: 1px solid var(--cabinet-line); border-radius: 15px; font-size: 14px; line-height: 1.6; }
+.bank-assessment-source h5 { font-size: 17px; }
+.bank-assessment-source p { margin: 10px 0; }
+.bank-assessment-source small { color: var(--cabinet-muted); }
+.bank-assessment-source ul { padding-left: 20px; }
+.bank-factor-details { margin-top: 18px; }
+.bank-factor-details summary { cursor: pointer; font-weight: 700; }
+.bank-factor-details dl { margin-top: 20px; }
 .bank-loading { color: var(--cabinet-muted); font-size: 14px; }
 .bank-application-list { display: grid; gap: 12px; }
 .bank-application-row { display: flex; justify-content: space-between; align-items: start; gap: 20px; width: 100%; padding: 21px; border: 1px solid var(--cabinet-line); border-radius: 17px; color: var(--cabinet-ink); background: #fff; text-align: left; }

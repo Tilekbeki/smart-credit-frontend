@@ -61,7 +61,7 @@ export function getSubmitChecklist(application, documents = [], validationDetail
     items.push(checklistItem('documents.EQUIPMENT_INVOICE', 'Счёт на оборудование', uploaded.has('EQUIPMENT_INVOICE'), 'Загрузите счёт на оборудование.'));
   } else if (application.productId === 'turnover') {
     if (bankRelationship === 'external_account') {
-      items.push(checklistItem('documents.BANK_STATEMENT', 'Выписка из другого банка', uploaded.has('BANK_STATEMENT'), 'Загрузите выписку, чтобы подтвердить обороты.'));
+      items.push({ id: 'documents.BANK_STATEMENT', label: 'Выписка из другого банка', state: uploaded.has('BANK_STATEMENT') ? 'done' : 'conditional', message: uploaded.has('BANK_STATEMENT') ? '' : 'Подготовьте выписку. Сервис проверит необходимость документа при отправке.' });
     } else {
       items.push(uploaded.has('BANK_STATEMENT')
         ? { id: 'documents.BANK_STATEMENT', label: 'Выписка по счёту', state: 'done', message: '' }

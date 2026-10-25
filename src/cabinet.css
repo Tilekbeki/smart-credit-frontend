@@ -487,6 +487,18 @@
 .credit-cabinet-dashboard .cabinet-status:not(.status-draft):not(.status-processing):not(.status-submitted):not(.status-rejected) { color: #286748; background: #e8f7ee; }
 .credit-cabinet-dashboard .cabinet-primary-button { color: #fff; background: var(--cabinet-red); }
 .credit-cabinet-dashboard .cabinet-primary-button:hover { background: #b8241e; }
+.credit-cabinet-dashboard .cabinet-primary-button:disabled { color: #62636d; background: #ededf1; opacity: 1; }
+.cabinet-contact-section { padding: 26px 0; border-top: 1px solid var(--cabinet-line); }
+.cabinet-contact-section:first-child { padding-top: 0; border-top: 0; }
+.cabinet-contact-section form { display: grid; gap: 16px; margin-top: 20px; max-width: 620px; }
+.cabinet-contact-section form > button { justify-self: start; }
+.cabinet-contact-section > button { margin-top: 24px; }
+.cabinet-account-preference { display: grid; gap: 10px; margin-top: 14px; }
+.cabinet-account-preference label { color: var(--cabinet-muted); font-size: 12px; }
+.cabinet-account-preference select { width: 100%; min-height: 43px; padding: 0 10px; border: 1px solid var(--cabinet-line); border-radius: 11px; color: var(--cabinet-ink); background: var(--cabinet-soft); font-size: 12px; }
+.cabinet-account-preference p { margin: 0; color: var(--cabinet-muted); font-size: 11px; line-height: 1.6; }
+.cabinet-delete-draft { margin: 0 0 22px; }
+.cabinet-draft-limit { margin-bottom: 22px; padding: 18px; border-radius: 15px; background: #fff6e8; font-size: 14px; line-height: 1.6; }
 
 @keyframes cabinet-spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) {

@@ -10,8 +10,10 @@ export const canReview = (application) => application?.status === 'manual_review
 export function prepareBankDecision(application, form) {
   if (!canReview(application)) throw new Error('Решение доступно только для заявки на ручном рассмотрении. Обновите её состояние.');
   if (!['approved', 'counter_offer', 'rejected'].includes(form.decision)) throw new Error('Выберите результат рассмотрения.');
-  const comment = form.comment.trim();
+  const comment = (form.internalComment ?? form.comment ?? '').trim();
   if (!comment || [...comment].length > 1000) throw new Error('Добавьте внутренний комментарий от 1 до 1000 символов.');
+  const customerExplanation = (form.customerExplanation || '').trim();
+  if ([...customerExplanation].length > 1000) throw new Error('Пояснение клиенту должно содержать не больше 1000 символов.');
   let offer = null;
   if (form.decision === 'approved') {
     offer = { amountRub: application.requestedAmountRub, termMonths: application.termMonths };
@@ -31,5 +33,5 @@ export function prepareBankDecision(application, form) {
     }
     offer = { amountRub, termMonths };
   }
-  return { version: application.version, decision: form.decision, comment, offer };
+  return { version: application.version, decision: form.decision, internalComment: comment, customerExplanation, offer };
 }

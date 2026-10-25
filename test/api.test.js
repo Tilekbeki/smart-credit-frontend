@@ -5,6 +5,7 @@ import {
   acceptOffer,
   createApplication,
   declineOffer,
+  deleteApplication,
   downloadDocument,
   getApplicationDecision,
   getBankApplication,
@@ -19,9 +20,31 @@ import {
   setUnauthorizedHandler,
   submitApplication,
   updateApplication,
+  updateMe,
+  updateCompanyContacts,
   uploadDocument,
   verifyOtp,
 } from '../src/api.js';
+
+test('contact updates use independent entity versions and draft deletion expects 204 without a body', async () => {
+  setAccessToken('client-jwt');
+  const calls = [];
+  await withFetch(async (url, options) => {
+    calls.push({ url, options });
+    return options.method === 'DELETE' ? new Response(null, { status: 204 }) : Response.json({ version: 3 });
+  }, async () => {
+    await updateMe({ version: 2, additionalEmail: null });
+    await updateCompanyContacts('company-1', { version: 5, contact: { email: 'office@example.test' } });
+    assert.equal(await deleteApplication('draft-1', 8), null);
+  });
+  assert.deepEqual(calls.map(({ url }) => url), ['/api/v1/me', '/api/v1/companies/company-1', '/api/v1/applications/draft-1?version=8']);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { version: 2, additionalEmail: null });
+  assert.deepEqual(JSON.parse(calls[1].options.body), { version: 5, contact: { email: 'office@example.test' } });
+  assert.equal(calls[2].options.method, 'DELETE');
+  assert.ok(!Object.hasOwn(calls[2].options, 'body'));
+  assert.equal(calls[2].options.headers.has('Idempotency-Key'), false);
+  assert.ok(calls.every(({ options }) => options.headers.get('Authorization') === 'Bearer client-jwt'));
+});
 
 test('employee reads and decisions use bank routes, filters, JWT and idempotency key', async () => {
   setAccessToken('employee-jwt');

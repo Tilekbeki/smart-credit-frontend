@@ -11,11 +11,19 @@ const form = { decision: 'approved', comment: ' Проверены докуме�
 
 test('employee approval keeps requested terms; rejection sends explicit null offer', () => {
   assert.deepEqual(prepareBankDecision(application, form), {
-    version: 4, decision: 'approved', comment: 'Проверены документы.', offer: { amountRub: 1000000, termMonths: 24 },
+    version: 4, decision: 'approved', internalComment: 'Проверены документы.', customerExplanation: '', offer: { amountRub: 1000000, termMonths: 24 },
   });
   assert.deepEqual(prepareBankDecision(application, { ...form, decision: 'rejected' }), {
-    version: 4, decision: 'rejected', comment: 'Проверены документы.', offer: null,
+    version: 4, decision: 'rejected', internalComment: 'Проверены документы.', customerExplanation: '', offer: null,
   });
+});
+
+test('public explanation is separate from the internal comment and is validated before sending', () => {
+  const result = prepareBankDecision(application, { ...form, internalComment: '  Внутренний анализ  ', customerExplanation: '  Предлагаем исходные условия.  ' });
+  assert.equal(result.internalComment, 'Внутренний анализ');
+  assert.equal(result.customerExplanation, 'Предлагаем исходные условия.');
+  assert.ok(!('comment' in result));
+  assert.throws(() => prepareBankDecision(application, { ...form, customerExplanation: 'а'.repeat(1001) }));
 });
 
 test('manual decision needs both review status and server permission and an internal reason', () => {

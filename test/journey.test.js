@@ -51,17 +51,18 @@ test('turnover statement remains conditional until the server requires it', () =
   });
 });
 
-test('company without an Alfa account prepares external turnover evidence before submit', () => {
+test('declared bank account guides the document hint while the server decides whether a statement is required', () => {
   const turnover = { ...completeDraft, productId: 'turnover', purpose: 'stock' };
   const withoutStatement = getSubmitChecklist(turnover, [], [], null, 'external_account');
-  assert.equal(withoutStatement.readyToSubmit, false);
+  assert.equal(withoutStatement.readyToSubmit, true);
   assert.deepEqual(withoutStatement.items.find((item) => item.id === 'documents.BANK_STATEMENT'), {
     id: 'documents.BANK_STATEMENT',
     label: 'Выписка из другого банка',
-    state: 'missing',
-    message: 'Загрузите выписку, чтобы подтвердить обороты.',
+    state: 'conditional',
+    message: 'Подготовьте выписку. Сервис проверит необходимость документа при отправке.',
   });
-  assert.equal(getNextAction(turnover, [], [], [], null, 'external_account').kind, 'upload_document');
+  assert.equal(getNextAction(turnover, [], [], [], null, 'external_account').kind, 'review_and_submit');
+  assert.equal(getSubmitChecklist(turnover, [], [{ field: 'documents.BANK_STATEMENT', message: 'Нужна выписка.' }], null, 'external_account').readyToSubmit, false);
   assert.equal(getSubmitChecklist(turnover, [{ documentType: 'BANK_STATEMENT' }], [], null, 'external_account').readyToSubmit, true);
   const activeOffer = { offer: { status: 'active' } };
   assert.match(getNextAction({ status: 'approved' }, [], [], [], null, 'external_account', activeOffer).description, /фактической выдачи/);

@@ -119,7 +119,9 @@ export const verifyOtp = (otpRequestId, code) =>
   jsonRequest('/auth/otp/verify', 'POST', { otpRequestId, code }, { auth: false });
 
 export const getMe = () => requestApi('/me');
+export const updateMe = (patch) => jsonRequest('/me', 'PATCH', patch);
 export const getCompany = (companyId) => requestApi(`/companies/${pathId(companyId)}`);
+export const updateCompanyContacts = (companyId, patch) => jsonRequest(`/companies/${pathId(companyId)}`, 'PATCH', patch);
 export const getCreditProducts = () => requestApi('/credit-products');
 export const getCreditProduct = (productId) => requestApi(`/credit-products/${pathId(productId)}`);
 export const getRecommendations = (data) => jsonRequest('/recommendations', 'POST', data);
@@ -134,6 +136,7 @@ export function listApplications({ status, limit, offset } = {}) {
 }
 export const getApplication = (id) => requestApi(applicationPath(id));
 export const updateApplication = (id, patch) => jsonRequest(applicationPath(id), 'PATCH', patch);
+export const deleteApplication = (id, version) => requestApi(`${applicationPath(id)}?version=${encodeURIComponent(version)}`, { method: 'DELETE' });
 export const getApplicationTimeline = (id) => requestApi(`${applicationPath(id)}/timeline`);
 export const getApplicationDecision = (id) => requestApi(`${applicationPath(id)}/decision`);
 

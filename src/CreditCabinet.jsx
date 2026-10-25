@@ -5,6 +5,8 @@ import * as api from './api';
 import { getJourneyStage, getNextAction, getSubmitChecklist } from './journey';
 import GuestChat from './GuestChat';
 import BankCabinet from './BankCabinet';
+import ContactSettings from './ContactSettings';
+import { fetchVisibleApplications } from './list-window';
 import './cabinet.css';
 
 const GOALS = [
@@ -39,20 +41,22 @@ const withNewerDecisionStatus = (application, decision) => decision?.application
   ? { ...application, status: decision.status, version: decision.version }
   : application;
 const accountPath = (value) => ['alfa_account', 'external_account'].includes(value) ? value : 'unknown';
-const initialForm = (company) => ({
+const storedAccountPath = (companyId) => {
+  try { return accountPath(localStorage.getItem(`smart-credit-account:${companyId}`)); }
+  catch { return 'unknown'; }
+};
+const initialForm = () => ({
   productId: null,
   purpose: 'stock',
   purposeDescription: '',
   requestedAmountRub: '1000000',
   termMonths: '24',
-  monthlyRevenueRub: accountPath(company?.bankRelationship) === 'alfa_account'
-    ? String(company?.financials?.monthlyRevenueRub ?? '') : '',
-  monthlyExpensesRub: accountPath(company?.bankRelationship) === 'alfa_account'
-    ? String(company?.financials?.monthlyExpensesRub ?? '') : '',
+  monthlyRevenueRub: '',
+  monthlyExpensesRub: '',
 });
 const formFromApplication = (application) => ({
   productId: application.productId,
-  purpose: application.purpose || 'stock',
+  purpose: application.purpose || '',
   purposeDescription: application.purposeDescription || '',
   requestedAmountRub: application.requestedAmountRub == null ? '' : String(application.requestedAmountRub),
   termMonths: application.termMonths == null ? '' : String(application.termMonths),
@@ -130,7 +134,7 @@ function DecisionPanel({ decision, bankRelationship, choice, onChoose, onConfirm
     {manualReview && reasons.length > 0 && <div className="cabinet-decision-reasons"><strong>Что требует дополнительной проверки</strong><ul>{reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul></div>}
     {hasFinalDecision && <>
       <h5>{status === 'rejected' ? 'По заявке принято решение об отказе' : status === 'signed' ? 'Условия подтверждены' : status === 'closed' ? 'Предложение отклонено' : status === 'counter_offer' ? 'Банк предложил другие условия' : 'Заявка одобрена'}</h5>
-      {reasons.length > 0 && <div className="cabinet-decision-reasons"><strong>Почему принято такое решение</strong><ul>{reasons.map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul></div>}
+      {(decision.customerExplanation || reasons.length > 0) && <div className="cabinet-decision-reasons"><strong>Почему принято такое решение</strong>{decision.customerExplanation && <p>{decision.customerExplanation}</p>}{reasons.filter((reason) => reason !== decision.customerExplanation).length > 0 && <ul>{reasons.filter((reason) => reason !== decision.customerExplanation).map((reason, index) => <li key={`${index}-${reason}`}>{reason}</li>)}</ul>}</div>}
       {offer && <div className="cabinet-offer"><div className="cabinet-offer-intro"><span>ПРЕДЛОЖЕНИЕ БАНКА</span><strong>{offer.status === 'accepted' ? 'Принято' : offer.status === 'withdrawn' ? 'Отклонено' : 'Доступно для ответа'}</strong></div><div className="cabinet-offer-terms"><div><span>Сумма кредита</span><strong>{formatRub(offer.amountRub)}</strong></div><div><span>Срок</span><strong>{offer.termMonths} мес.</strong></div><div><span>Ставка в год</span><strong>{offer.annualRatePercent}%</strong></div><div><span>Платёж в месяц</span><strong>{formatRub(offer.monthlyPaymentRub)}</strong></div></div>
         {bankRelationship === 'external_account' && offer.status === 'active' && <p className="cabinet-offer-account-note">Для фактической выдачи кредита понадобится счёт бизнеса в Альфа-Банке. Сейчас можно рассмотреть предложение.</p>}
         {offer.status === 'active' && ['approved', 'counter_offer'].includes(status) && <><div className="cabinet-offer-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={() => onChoose('accept')} disabled={Boolean(busy)}>Принять условия ↗</Button><Button view="secondary" type="button" onClick={() => onChoose('decline')} disabled={Boolean(busy)}>Отклонить предложение</Button></div>
@@ -190,6 +194,12 @@ export default function CreditCabinet() {
   const [details, setDetails] = useState([]);
   const [notice, setNotice] = useState('');
   const [conflictedForm, setConflictedForm] = useState(null);
+  const [contactsDirty, setContactsDirty] = useState(false);
+  const [bankRelationship, setBankRelationship] = useState('unknown');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [draftLimitReached, setDraftLimitReached] = useState(false);
+  const [savedNewForm, setSavedNewForm] = useState(null);
+  const [listRefreshNotice, setListRefreshNotice] = useState('');
   const documentsRef = useRef(null);
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
@@ -240,6 +250,7 @@ export default function CreditCabinet() {
       guestPrefillRef.current = null;
       setGuestProgress(null);
       setConflictedForm(null);
+      setContactsDirty(false); setBankRelationship('unknown'); setDeleteTarget(null); setSavedNewForm(null); setDraftLimitReached(false);
       setBusy('');
       setError('Сессия истекла. Войдите по номеру телефона, чтобы продолжить.');
       setDetails([]);
@@ -253,6 +264,22 @@ export default function CreditCabinet() {
     setApplicationsTotal(page.total);
     return page;
   }, []);
+
+  useEffect(() => {
+    if (authStage !== 'ready' || user?.role !== 'CLIENT' || screen !== 'list' || busy) return undefined;
+    let active = true;
+    let pending = false;
+    const timer = window.setInterval(async () => {
+      if (pending || document.hidden) return;
+      pending = true;
+      try {
+        const page = await fetchVisibleApplications(api.listApplications, applications.length);
+        if (active) { setApplications(page.items); setApplicationsTotal(page.total); setListRefreshNotice(''); }
+      } catch (failure) { if (active && failure.status !== 401) setListRefreshNotice('Не удалось обновить список автоматически. Повторим попытку.'); }
+      finally { pending = false; }
+    }, 10000);
+    return () => { active = false; window.clearInterval(timer); };
+  }, [authStage, user?.role, screen, busy, applications.length]);
 
   const refreshSelected = useCallback(async (applicationId) => {
     const [application, events, uploaded, decision] = await Promise.all([
@@ -363,6 +390,7 @@ export default function CreditCabinet() {
       ]);
       setUser(currentUser);
       setCompany(currentCompany);
+      setBankRelationship(storedAccountPath(currentCompany.id));
       setProducts(productList.items || []);
       setApplications(page.items || []);
       setApplicationsTotal(page.total || 0);
@@ -423,6 +451,7 @@ export default function CreditCabinet() {
 
   const signOut = () => {
     if (!confirmLeaveForm()) return;
+    if (savedNewForm && !window.confirm('Ввод новой заявки ещё не сохранён на сервере. Выйти из кабинета?')) return;
     api.setAccessToken(null);
     setUser(null);
     setCompany(null);
@@ -448,6 +477,7 @@ export default function CreditCabinet() {
     setCode('');
     setPhone('');
     setConflictedForm(null);
+    setContactsDirty(false); setBankRelationship('unknown'); setDeleteTarget(null); setSavedNewForm(null); setDraftLimitReached(false);
     clearMessages();
   };
 
@@ -462,11 +492,13 @@ export default function CreditCabinet() {
     setDocuments([]);
     setTimeline([]);
     const startingForm = initialForm(company);
-    setForm(startingForm);
+    setForm(savedNewForm || startingForm);
+    setSavedNewForm(null);
     setNewFormBaseline(startingForm);
     setRecommendations(null);
     setFile(null);
     setConflictedForm(null);
+    setContactsDirty(false); setDeleteTarget(null);
     setScreen('new');
   };
 
@@ -474,6 +506,7 @@ export default function CreditCabinet() {
     if (!confirmLeaveForm()) return;
     clearMessages();
     setConflictedForm(null);
+    setContactsDirty(false); setDeleteTarget(null);
     setScreen('list');
   };
 
@@ -599,6 +632,7 @@ export default function CreditCabinet() {
       setScreen('application');
       setConflictedForm(null);
       setNotice(wasNew ? 'Черновик сохранён в кабинете. Продолжите его, когда будете готовы к отправке.' : 'Изменения сохранены.');
+      if (wasNew) { setDraftLimitReached(false); setSavedNewForm(null); }
       try {
         const application = await refreshSelected(saved.applicationId);
         setForm(formFromApplication(application));
@@ -616,7 +650,10 @@ export default function CreditCabinet() {
           await loadApplications(0);
           setError('Черновик изменился в другом окне. Мы сохранили ваш ввод на этой странице: сравните его с новой версией и восстановите, если нужно.');
         } catch (reloadError) { setError('Черновик изменился в другом окне. Ваш ввод остался на странице, но свежую версию загрузить не удалось. Попробуйте открыть заявку позже.'); }
-      } else reportError(failure);
+      } else {
+        if (failure.code === 'draft_limit_reached') setDraftLimitReached(true);
+        reportError(failure);
+      }
     } finally { setBusy(''); }
   };
 
@@ -743,15 +780,55 @@ export default function CreditCabinet() {
     finally { setBusy(''); }
   };
 
+  const manageDraftLimit = async () => {
+    setSavedNewForm({ ...form }); setDraftLimitReached(false); setScreen('list'); clearMessages(); setBusy('list');
+    try { await loadApplications(0); }
+    catch (failure) { reportError(failure, 'Не удалось загрузить черновики. Ввод новой заявки остался на странице.'); }
+    finally { setBusy(''); }
+  };
+
+  const removeDraft = async () => {
+    if (!deleteTarget) return;
+    clearMessages(); setBusy('deleting');
+    try {
+      await api.deleteApplication(deleteTarget.applicationId, deleteTarget.version);
+      setApplications((previous) => previous.filter((item) => item.applicationId !== deleteTarget.applicationId));
+      setApplicationsTotal((previous) => Math.max(0, previous - 1));
+      setSelected(null); setCreditDecision(null); setDocuments([]); setTimeline([]); setRecommendations(null);
+      setForm(initialForm(company)); setNewFormBaseline(initialForm(company)); setDeleteTarget(null); setDraftLimitReached(false); setScreen('list');
+      setNotice('Черновик удалён. Можно продолжить другую заявку или создать новую.');
+      try { await loadApplications(0); } catch { setNotice('Черновик удалён. Обновить список пока не удалось.'); }
+    } catch (failure) {
+      if (failure.code === 'version_conflict' || failure.code === 'invalid_status') {
+        setDeleteTarget(null);
+        try { const latest = await refreshSelected(deleteTarget.applicationId); setForm(formFromApplication(latest)); } catch { /* Keep the original conflict visible. */ }
+      }
+      reportError(failure);
+    } finally { setBusy(''); }
+  };
+
+  const openContacts = () => {
+    if (!confirmLeaveForm()) return;
+    clearMessages(); setContactsDirty(false); setScreen('contacts'); setDeleteTarget(null);
+  };
+
+  const useProfileFinancials = () => {
+    if (!confirmLeaveForm()) return;
+    if (savedNewForm && !window.confirm('На странице есть несохранённый ввод новой заявки. Заменить его данными профиля?')) return;
+    const starting = initialForm(company);
+    setForm({ ...starting, monthlyRevenueRub: String(company.financials.monthlyRevenueRub), monthlyExpensesRub: String(company.financials.monthlyExpensesRub) });
+    setNewFormBaseline(starting); setSelected(null); setDocuments([]); setTimeline([]); setRecommendations(null); setCreditDecision(null); setConflictedForm(null); setContactsDirty(false); setSavedNewForm(null); setDeleteTarget(null); setScreen('new');
+    clearMessages(); setNotice('Выручка и расходы подставлены из профиля. Проверьте их перед сохранением заявки.');
+  };
+
   const currentPayload = payloadFromForm(form);
   const editableFields = numericFields.concat(['productId', 'purpose', 'purposeDescription']);
   const hasUnsavedChanges = screen === 'application' && selected?.status === 'draft' && editableFields
     .some((field) => currentPayload[field] !== selected[field]);
   const baselinePayload = payloadFromForm(newFormBaseline);
   const hasNewChanges = screen === 'new' && editableFields.some((field) => currentPayload[field] !== baselinePayload[field]);
-  const confirmLeaveForm = () => !(hasUnsavedChanges || hasNewChanges || conflictedForm)
+  const confirmLeaveForm = () => !(hasUnsavedChanges || hasNewChanges || conflictedForm || contactsDirty)
     || window.confirm('Введённые изменения не сохранены. Покинуть эту форму?');
-  const bankRelationship = accountPath(company?.bankRelationship);
   const selectedProduct = products.find((product) => product.id === selected?.productId) || null;
   const formProduct = products.find((product) => product.id === form.productId) || null;
   const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct, bankRelationship);
@@ -760,22 +837,22 @@ export default function CreditCabinet() {
   const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
   const draftToContinue = applications.filter((item) => item.status === 'draft')
     .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
-  const showApplicationDetails = screen === 'new' || screen === 'application' || Boolean(recommendations);
+  const showApplicationDetails = screen === 'new' || screen === 'application';
 
   useEffect(() => {
-    if (authStage !== 'ready' || !(hasUnsavedChanges || hasNewChanges || conflictedForm)) return undefined;
+    if (authStage !== 'ready' || !(hasUnsavedChanges || hasNewChanges || conflictedForm || contactsDirty || savedNewForm)) return undefined;
     const warnBeforeLeave = (event) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warnBeforeLeave);
     return () => window.removeEventListener('beforeunload', warnBeforeLeave);
-  }, [authStage, hasUnsavedChanges, hasNewChanges, conflictedForm]);
+  }, [authStage, hasUnsavedChanges, hasNewChanges, conflictedForm, contactsDirty, savedNewForm]);
 
   useEffect(() => {
     if (authStage === 'ready' && panelContentRef.current) panelContentRef.current.scrollTop = 0;
   }, [authStage, screen, selected?.applicationId]);
 
-  const panelTitle = screen === 'list' ? 'Мои заявки' : screen === 'new' ? 'Новая заявка'
+  const panelTitle = screen === 'contacts' ? 'Контакты и данные' : screen === 'list' ? 'Мои заявки' : screen === 'new' ? 'Новая заявка'
     : selected?.status === 'draft' ? 'Черновик заявки' : 'Статус заявки';
-  const panelDescription = screen === 'list'
+  const panelDescription = screen === 'contacts' ? 'Обновляйте контактные данные и проверяйте сведения компании.' : screen === 'list'
     ? 'Продолжайте черновики и следите за уже отправленными заявками.'
     : screen === 'new'
       ? 'Укажите задачу бизнеса — покажем подходящие варианты и следующие шаги.'
@@ -829,10 +906,9 @@ export default function CreditCabinet() {
     <div className="cabinet-tabs" role="navigation" aria-label="Разделы кабинета">
       <button type="button" className={screen === 'new' ? 'active' : ''} onClick={beginNew} disabled={Boolean(busy)}>Новая заявка</button>
       <button type="button" className={screen === 'list' || screen === 'application' ? 'active' : ''} onClick={goToList} disabled={Boolean(busy)}>Мои заявки <span>{applicationsTotal}</span></button>
+      <button type="button" className={screen === 'contacts' ? 'active' : ''} onClick={openContacts} disabled={Boolean(busy)}>Контакты и данные</button>
     </div>
-    {bankRelationship !== 'unknown' && <details className="cabinet-account-details"><summary>Данные о счёте</summary><div className={`cabinet-account-path is-${bankRelationship}`}><strong>{bankRelationship === 'alfa_account' ? 'Счёт в Альфа-Банке уже есть' : 'Счёта в Альфа-Банке пока нет'}</strong><p>{bankRelationship === 'alfa_account'
-      ? 'Данные об оборотах подставлены из профиля компании. Проверьте их перед отправкой заявки.'
-      : 'Заявку можно подать без счёта в Альфе. Для оборотного кредита нужна выписка из другого банка. Если кредит одобрят, счёт потребуется перед выдачей.'}</p></div></details>}
+    <details className="cabinet-account-details"><summary>Данные о счёте</summary><div className="cabinet-account-preference"><label htmlFor="account-relationship">Где открыт счёт бизнеса?</label><select id="account-relationship" value={bankRelationship} disabled={Boolean(busy)} onChange={(event) => { const value = accountPath(event.target.value); setBankRelationship(value); try { localStorage.setItem(`smart-credit-account:${company.id}`, value); } catch { /* The optional preference also works in memory. */ } }}><option value="unknown">Укажу позже</option><option value="alfa_account">В Альфа-Банке</option><option value="external_account">В другом банке</option></select><p>Ваш выбор сохраняется в этом браузере и помогает с подсказками. Нужные документы банк проверит при отправке заявки.</p></div></details>
     <button className="cabinet-signout" type="button" onClick={signOut} disabled={Boolean(busy)}>Выйти из кабинета</button>
     </aside>
     <section className="cabinet-main-panel" aria-label={panelTitle}>
@@ -840,8 +916,12 @@ export default function CreditCabinet() {
       <div className="cabinet-panel-content" ref={panelContentRef} aria-busy={busy === 'opening'}>
     {error && <ErrorNotice error={error} details={details} />}
     {notice && <p className="cabinet-notice" role="status">{notice}</p>}
+    {draftLimitReached && <div className="cabinet-draft-limit"><p>Удалите ненужный черновик или отправьте готовую заявку. Введённые данные новой заявки можно оставить на этой странице.</p><Button view="secondary" onClick={manageDraftLimit} disabled={Boolean(busy)}>Перейти к черновикам</Button></div>}
+    {screen === 'contacts' && <ContactSettings user={user} company={company} onUserChange={setUser} onCompanyChange={setCompany} onDirtyChange={setContactsDirty} onBusyChange={(value) => setBusy(value ? 'contacts' : '')} onUseFinancials={useProfileFinancials} />}
 
     {screen === 'list' && <div className="cabinet-list">
+      <p className="cabinet-helper" role="status">{listRefreshNotice || 'Список обновляется автоматически каждые 10 секунд.'}</p>
+      {savedNewForm && <div className="cabinet-resume"><div><strong>Ввод новой заявки остался на странице</strong><p>После освобождения места вернитесь к заполнению.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Вернуться к новой заявке</Button></div>}
       <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Новая заявка +</Button></div>
       {draftToContinue && <div className="cabinet-resume"><div><span>МОЖНО ПРОДОЛЖИТЬ</span><strong>{draftToContinue.productName || 'Черновик кредитной заявки'}</strong><p>Сохранён {formatDate(draftToContinue.updatedAt || draftToContinue.createdAt)}. Данные останутся в этой заявке до отправки.</p></div><Button className="cabinet-primary-button" view="primary" onClick={() => chooseApplication(draftToContinue.applicationId)} disabled={Boolean(busy)}>Продолжить заявку ↗</Button></div>}
       {applications.length === 0 ? <div className="cabinet-empty"><strong>Заявок пока нет</strong><p>Начните с цели и сохраните первый черновик.</p></div> : applications.map((application) => <button key={application.applicationId} type="button" className="cabinet-application-row" onClick={() => chooseApplication(application.applicationId)} disabled={Boolean(busy)}>
@@ -854,6 +934,7 @@ export default function CreditCabinet() {
 
     {(screen === 'new' || (screen === 'application' && selected?.status === 'draft')) && <div className="cabinet-workflow">
       {selected && <div className="cabinet-draft-bar"><span>Черновик № {shortId(selected.applicationId)} · версия {selected.version}</span><button type="button" onClick={goToList} disabled={Boolean(busy)}>К списку ↑</button></div>}
+      {selected?.availableActions?.includes('delete') && <div className="cabinet-delete-draft">{deleteTarget ? <div className="cabinet-conflict" role="group" aria-label="Удаление черновика"><strong>Удалить этот черновик?</strong><p>Заявка и её документы станут недоступны в кабинете. Отправленные заявки не изменятся.</p><div><Button view="primary" className="cabinet-primary-button" disabled={Boolean(busy)} onClick={removeDraft}>{busy === 'deleting' ? 'Удаляем…' : 'Да, удалить черновик'}</Button><button className="cabinet-text-button" type="button" disabled={Boolean(busy)} onClick={() => setDeleteTarget(null)}>Отмена</button></div></div> : <button className="cabinet-text-button" type="button" disabled={Boolean(busy)} onClick={() => setDeleteTarget({ applicationId: selected.applicationId, version: selected.version })}>Удалить черновик</button>}</div>}
       {selected && journeyStage && <JourneyProgress stage={journeyStage} />}
       {conflictedForm && <div className="cabinet-conflict" role="alert"><strong>Ваш ввод сохранён на этой странице</strong><p>С сервера загружена новая версия черновика. Восстановите свои значения, проверьте их и снова сохраните.</p><div><Button view="secondary" onClick={() => { setForm(conflictedForm); setConflictedForm(null); clearMessages(); setNotice('Ваш ввод восстановлен. Проверьте данные и сохраните изменения.'); }}>Восстановить мой ввод</Button><button type="button" className="cabinet-text-button" onClick={() => { setConflictedForm(null); clearMessages(); }}>Оставить версию сервера</button></div></div>}
       <h4>{selected ? 'Редактирование черновика' : 'Для чего нужны средства?'}</h4>
@@ -869,9 +950,9 @@ export default function CreditCabinet() {
           <div><Input className="cabinet-finance-input" label="Расходы в месяц, ₽" name="monthlyExpensesRub" type="number" min="0" disabled={Boolean(busy)} value={form.monthlyExpensesRub} onChange={(_, data) => updateField('monthlyExpensesRub', data?.value ?? '')} />{fieldError('monthlyExpensesRub') && <small className="cabinet-inline-error" role="alert">{fieldError('monthlyExpensesRub')}</small>}</div>
         </div>
         <p className="cabinet-helper">{bankRelationship === 'alfa_account'
-          ? 'Выручка и расходы подставлены из профиля компании. Проверьте их и при необходимости измените.'
+          ? 'Данные из профиля можно подставить через раздел «Контакты и данные». Проверьте показатели перед отправкой заявки.'
           : bankRelationship === 'external_account'
-            ? 'Банк пока не видит обороты по вашему счёту в другом банке. Укажите месячную выручку и расходы; для оборотного кредита понадобится выписка.'
+            ? 'Укажите месячную выручку и расходы. Выписку из другого банка можно подготовить заранее; сервис проверит необходимость документа при отправке.'
             : 'Укажите месячную выручку и расходы. Источник оборотов пока не подтверждён.'}</p>
         <Button view="secondary" type="submit" disabled={Boolean(busy)}>{busy === 'recommendations' ? 'Считаем варианты…' : 'Рассчитать варианты ↗'}</Button>
       </form>
@@ -894,7 +975,7 @@ export default function CreditCabinet() {
 
       {showApplicationDetails && !recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} disabled={Boolean(busy)} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>{fieldError('productId') && <small className="cabinet-inline-error" role="alert">{fieldError('productId')}</small>}<small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
       {showApplicationDetails && formProduct && <div className="cabinet-product-terms"><strong>Условия выбранного продукта</strong><span>Сумма: {formatRub(formProduct.minAmountRub)}–{formatRub(formProduct.maxAmountRub)}</span><span>Срок: {formProduct.minTermMonths}–{formProduct.maxTermMonths} мес.</span><span>Стаж бизнеса: от {formProduct.minBusinessAgeMonths} мес.</span></div>}
-      {showApplicationDetails && <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? bankRelationship === 'external_account' ? 'Для проверки оборотов понадобится выписка из другого банка. Загрузить её можно после сохранения черновика.' : 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>}
+      {showApplicationDetails && <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? bankRelationship === 'external_account' ? 'Подготовьте выписку из другого банка. Её можно загрузить после сохранения черновика; необходимость документа проверится при отправке.' : 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>}
       {showApplicationDetails && <div className="cabinet-primary-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>}
 
       {selected && <SubmitChecklist checklist={checklist} />}
