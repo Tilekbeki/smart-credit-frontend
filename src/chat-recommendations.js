@@ -1,3 +1,5 @@
+import { isValidNumericValue } from './application-form.js';
+
 // Guests receive product orientation only. Personal limits and payments come from the API after sign-in.
 export function guestRecommendation(purpose) {
   if (['stock', 'expenses', 'seasonal'].includes(purpose)) return {
@@ -19,33 +21,19 @@ export function guestRecommendation(purpose) {
 
 export function chatProgress(value, authenticated) {
   if (!value?.currentStep || !Array.isArray(value.history)) return { currentStep: 'purpose', history: [] };
-  if (authenticated && value.currentStep === 'complete' && !value.history.some((item) => item.field === 'monthlyRevenueRub')) {
-    return { currentStep: 'monthlyRevenueRub', history: value.history };
+  if (authenticated && value.currentStep === 'complete') {
+    const missing = ['monthlyRevenueRub', 'monthlyExpensesRub'].find((field) => !value.history.some((item) => item.field === field));
+    if (missing) return { currentStep: missing, history: value.history };
   }
   return { currentStep: value.currentStep, history: value.history };
 }
 
-export function recommendationInput(form) {
-  const input = { purpose: form.purpose };
-  for (const field of ['requestedAmountRub', 'termMonths', 'monthlyRevenueRub', 'monthlyExpensesRub']) {
-    const raw = String(form[field] ?? '').trim();
-    const value = Number(raw);
-    const minimum = ['requestedAmountRub', 'termMonths'].includes(field) ? 1 : 0;
-    if (!raw || !Number.isSafeInteger(value) || value < minimum || value > (field === 'termMonths' ? 120 : 1e12)) {
-      throw new Error('Проверьте сумму, срок, выручку и расходы. Все четыре значения нужны для расчёта.');
-    }
-    input[field] = value;
-  }
-  return input;
-}
-
-// A known draft is handed off to the cabinet even if submit fails: never create a second draft on retry.
-export async function sendChatApplication(api, payload) {
-  const draft = await api.createApplication(payload);
-  try {
-    const submitted = await api.submitApplication(draft.applicationId);
-    return { application: { ...draft, ...submitted }, submitted: true, failure: null };
-  } catch (failure) {
-    return { application: draft, submitted: false, failure };
-  }
+export function parseChatNumber(raw, field) {
+  let value = String(raw).trim().toLocaleLowerCase('ru-RU').replace(/\s|₽/g, '');
+  if (field === 'termMonths') value = value.replace(/мес(?:яц(?:ев|а)?)?\.?$/, '');
+  const match = value.match(/^(\d+(?:[.,]\d+)?)(млн\.?|тыс(?:яч)?\.?)?$/);
+  if (!match) return null;
+  const multiplier = match[2]?.startsWith('млн') ? 1000000 : match[2] ? 1000 : 1;
+  const number = Number(match[1].replace(',', '.')) * multiplier;
+  return isValidNumericValue(field, number) ? number : null;
 }

@@ -4,21 +4,15 @@ import { Input } from '@alfalab/core-components/input';
 import * as api from './api';
 import { BANK_STATUSES, canReview, prepareBankDecision } from './bank-review';
 import { fetchVisibleApplications } from './list-window';
+import { formatRub as rub, formatDate as date, shortId as idLabel } from './utils/format';
+import { GOAL_NAMES as goal, DOCUMENT_NAMES as documentNames } from './config/credit';
+import { ErrorNotice } from './components/CabinetPanels';
 import './bank-cabinet.css';
 
-const rub = (value) => value == null ? '—' : `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
-const date = (value) => value ? new Date(value).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—';
-const idLabel = (value) => value?.slice(0, 8).toUpperCase();
-const goal = { stock: 'Товары и сырьё', expenses: 'Текущие расходы', seasonal: 'Сезонный спрос', equipment: 'Оборудование', upgrade: 'Модернизация', other: 'Другая задача' };
-const documentNames = { BANK_STATEMENT: 'Выписка по счёту', EQUIPMENT_INVOICE: 'Счёт на оборудование' };
 const riskNames = { LOW: 'Низкий', MEDIUM: 'Средний', HIGH: 'Высокий' };
 const percent = (value) => value == null ? 'Нет данных' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value * 100)}%`;
 const factorRub = (value) => value == null ? 'Нет данных' : rub(value);
 const Status = ({ value }) => <span className={`cabinet-status status-${value}`}>{BANK_STATUSES[value] || value}</span>;
-
-function ErrorNotice({ error }) {
-  return error && <div className="cabinet-error" role="alert"><strong>{error.message}</strong>{error.details?.length > 0 && <ul>{error.details.map((item, i) => <li key={i}>{item.message}</li>)}</ul>}</div>;
-}
 
 function Assessment({ value, reviewer }) {
   if (!value) return null;
@@ -68,7 +62,7 @@ function ReviewForm({ application, onSave, busy, onDirtyChange }) {
       <small className="cabinet-helper">Комментарий сохранится для банка и не попадёт в клиентские пояснения. Ставку и платёж рассчитывает сервис.</small>
       <label className="cabinet-textarea-label">Пояснение клиенту<textarea value={form.customerExplanation} maxLength={1000} disabled={busy} onChange={(event) => change('customerExplanation', event.target.value)} placeholder="Объясните результат понятным языком" /></label>
       <small className="cabinet-helper">Клиент увидит этот текст в решении. Если оставить поле пустым, банк сохранит стандартную формулировку.</small>
-      <ErrorNotice error={error} />
+      <ErrorNotice error={error?.message} details={error?.details} />
       {!pending && <Button view="primary" className="cabinet-primary-button" type="submit" disabled={busy}>Проверить решение</Button>}
       {pending && <div className="bank-confirm" role="group" aria-label="Подтверждение решения"><strong>Подтвердить {({ approved: 'одобрение заявки', counter_offer: 'предложение других условий', rejected: 'отказ по заявке' })[pending.decision]}?</strong>{pending.offer && <p>{rub(pending.offer.amountRub)} · {pending.offer.termMonths} мес.</p>}<p>Пояснение клиенту: {pending.customerExplanation || 'Стандартная формулировка банка.'}</p><p>Результат сохранится в заявке и станет доступен клиенту.</p><div><Button type="button" view="primary" className="cabinet-primary-button" disabled={busy} onClick={() => onSave(pending)}>{busy ? 'Сохраняем…' : 'Подтвердить решение'}</Button><button className="cabinet-text-button" type="button" disabled={busy} onClick={() => setPending(null)}>Вернуться к проверке</button></div></div>}
     </form>
@@ -247,7 +241,7 @@ export default function BankCabinet({ user, onSignOut }) {
       <div className="cabinet-panel-content" ref={contentRef} aria-busy={Boolean(busy)}>
         <div className="bank-toolbar">{selection ? <button className="cabinet-text-button" type="button" disabled={Boolean(busy)} onClick={() => showList()}>← К списку заявок</button> : <div className="bank-filters"><label>Статус<select aria-label="Фильтр по статусу" value={filter} disabled={Boolean(busy)} onChange={(event) => showList(event.target.value)}><option value="">Все статусы</option>{Object.entries(BANK_STATUSES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label>Компания<select aria-label="Фильтр по компании" value={companyFilter} disabled={Boolean(busy)} onChange={(event) => setCompanyFilter(event.target.value)}><option value="">Все компании</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></label></div>}<Button view="secondary" type="button" disabled={Boolean(busy)} onClick={() => refresh()}>{busy ? 'Загрузка…' : 'Обновить'}</Button></div>
         <p className="cabinet-helper" role="status">{refreshNotice || (reviewDirty ? 'Автообновление карточки приостановлено, пока вы заполняете решение.' : 'Данные обновляются автоматически каждые 10 секунд.')}</p>
-        <ErrorNotice error={error} />{notice && <p className="cabinet-notice" role="status">{notice}</p>}
+        <ErrorNotice error={error?.message} details={error?.details} />{notice && <p className="cabinet-notice" role="status">{notice}</p>}
         {busy === 'detail' && <p role="status" className="bank-loading">Загружаем анкету, проверки и документы…</p>}
         {!selection && <div className="bank-application-list">{items.map((item) => <button key={item.applicationId} type="button" className="bank-application-row" disabled={Boolean(busy)} onClick={() => open(item.applicationId)}><div><strong>{item.company.name}</strong><span>ИНН {item.company.inn} · № {idLabel(item.applicationId)}</span><small>{item.product.name} · {date(item.submittedAt)}</small></div><div><strong>{rub(item.requestedAmountRub)}</strong><small>{item.termMonths} мес.</small><Status value={item.status} /></div></button>)}{!busy && items.length === 0 && <div className="cabinet-empty"><h4>Заявок пока нет</h4><p>{filter ? 'В выбранном статусе нет заявок. Измените фильтр или обновите список.' : 'Отправленные клиентами заявки появятся здесь.'}</p></div>}{items.length < total && <Button view="secondary" type="button" disabled={Boolean(busy)} onClick={() => refresh(true)}>Показать ещё</Button>}</div>}
         {selection && <>

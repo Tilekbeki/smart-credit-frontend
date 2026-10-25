@@ -1,16 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import catArt from '../assets/alpha-cat-hero.png';
 import './guest-chat.css';
-import { chatProgress, guestRecommendation, recommendationInput } from './chat-recommendations';
-
-const GOALS = [
-  ['stock', 'Товары и сырьё'],
-  ['expenses', 'Текущие расходы'],
-  ['seasonal', 'Сезонный спрос'],
-  ['equipment', 'Оборудование'],
-  ['upgrade', 'Модернизация'],
-  ['other', 'Другая задача'],
-];
+import { chatProgress, guestRecommendation, parseChatNumber } from './chat-recommendations';
+import { GOALS } from './config/credit';
+import { PAGES } from './config/pages';
+import { formatRub } from './utils/format';
+import { useChatRecommendations } from './hooks/useChatRecommendations';
 
 const QUESTIONS = {
   purpose: 'На что нужны деньги вашему бизнесу?',
@@ -30,29 +25,9 @@ const NEXT_STEP = {
   monthlyExpensesRub: 'complete',
 };
 
-const formatRub = (value) => `${new Intl.NumberFormat('ru-RU').format(value)} ₽`;
-
-function parseNumber(raw, field) {
-  let value = String(raw).trim().toLocaleLowerCase('ru-RU').replace(/\s|₽/g, '');
-  if (field === 'termMonths') value = value.replace(/мес(?:яц(?:ев|а)?)?\.?$/, '');
-  const match = value.match(/^(\d+(?:[.,]\d+)?)(млн\.?|тыс(?:яч)?\.?)?$/);
-  if (!match) return null;
-  const multiplier = match[2]?.startsWith('млн') ? 1000000 : match[2] ? 1000 : 1;
-  const number = Number(match[1].replace(',', '.')) * multiplier;
-  const minimum = field === 'termMonths' || field === 'requestedAmountRub' ? 1 : 0;
-  const maximum = field === 'termMonths' ? 120 : 1000000000000;
-  return Number.isSafeInteger(number) && number >= minimum && number <= maximum ? number : null;
-}
-
 export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, initialProgress, onProgressChange,
   authenticated = false, company, onRecommend, onSubmitApplication, onBackToCabinet, busy = false }) {
   const [progress, setProgress] = useState(() => chatProgress(initialProgress, authenticated));
-  const [result, setResult] = useState(null);
-  const [calculating, setCalculating] = useState(false);
-  const [resultError, setResultError] = useState('');
-  const [retry, setRetry] = useState(0);
-  const [selectedProductId, setSelectedProductId] = useState(null);
-  const [confirming, setConfirming] = useState(false);
   const sendingRef = useRef(false);
   const [typing, setTyping] = useState(true);
   const [draft, setDraft] = useState('');
@@ -64,8 +39,10 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
   const complete = currentStep === 'complete';
   const includesDescription = currentStep === 'purposeDescription' || history.some((item) => item.field === 'purposeDescription');
   const totalQuestions = (authenticated ? 5 : 3) + (includesDescription ? 1 : 0);
-  const recommendationKey = JSON.stringify([form.purpose, form.requestedAmountRub, form.termMonths, form.monthlyRevenueRub, form.monthlyExpensesRub]);
-  const selectedProduct = result?.products?.find((item) => item.product.id === selectedProductId && item.eligible);
+  const { result, calculating, resultError, setResultError, retryRecommendation,
+    selectedProductId, selectedProduct, selectProduct, confirming, setConfirming } = useChatRecommendations({
+    form, enabled: authenticated && complete && !typing, onRecommend,
+  });
   const answeredCount = history.length;
 
   useEffect(() => {
@@ -79,10 +56,11 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
     };
   }, []);
 
+  const currentValue = currentStep === 'purpose' || complete ? '' : String(form[currentStep] ?? '');
   useEffect(() => {
-    setDraft(currentStep === 'purpose' || complete ? '' : String(form[currentStep] ?? ''));
+    setDraft(currentValue);
     setError('');
-  }, [currentStep]);
+  }, [currentStep, currentValue]);
 
   useEffect(() => {
     if (!typing) return undefined;
@@ -91,24 +69,6 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
     const timer = window.setTimeout(() => setTyping(false), delay);
     return () => window.clearTimeout(timer);
   }, [currentStep, typing]);
-
-  useEffect(() => {
-    setResult(null); setResultError(''); setConfirming(false); setSelectedProductId(null);
-    if (!complete || typing || !authenticated) return undefined;
-    let active = true;
-    setCalculating(true);
-    Promise.resolve().then(() => onRecommend(recommendationInput(form)))
-      .then((response) => {
-        if (!active) return;
-        setResult(response);
-        const preferred = response.products?.find((item) => item.product.id === response.recommendedProductId && item.eligible)
-          || response.products?.find((item) => item.eligible);
-        setSelectedProductId(preferred?.product.id || null);
-      })
-      .catch((failure) => { if (active) setResultError(failure.message || 'Не удалось получить подбор. Попробуйте ещё раз.'); })
-      .finally(() => { if (active) setCalculating(false); });
-    return () => { active = false; };
-  }, [complete, typing, authenticated, recommendationKey, retry, onRecommend]);
 
   useLayoutEffect(() => {
     if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight;
@@ -120,7 +80,7 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
       (complete ? continueRef.current : answerRef.current?.querySelector('button, input'))?.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [typing, currentStep]);
+  }, [typing, currentStep, complete]);
 
   const saveProgress = (next) => {
     setProgress(next);
@@ -139,7 +99,7 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
     const value = String(raw).trim();
     if (!value) { setError('Напишите ответ или выберите один из вариантов.'); return; }
     if (currentStep === 'purpose') {
-      if (value.length > 300) { setError('Не больше 300 символов.'); return; }
+      if ([...value].length > 300 || value.includes('\0')) { setError('Не больше 300 символов.'); return; }
       const known = selectedGoal
         ? GOALS.find(([id]) => id === selectedGoal)
         : GOALS.find(([, label]) => label.toLocaleLowerCase('ru-RU') === value.toLocaleLowerCase('ru-RU'));
@@ -154,12 +114,12 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
       return;
     }
     if (currentStep === 'purposeDescription') {
-      if (value.length > 300) { setError('Не больше 300 символов.'); return; }
+      if ([...value].length > 300 || value.includes('\0')) { setError('Не больше 300 символов.'); return; }
       onFieldChange('purposeDescription', value);
       advance('purposeDescription', value, NEXT_STEP.purposeDescription);
       return;
     }
-    const number = parseNumber(value, currentStep);
+    const number = parseChatNumber(value, currentStep);
     if (number === null) {
       setError(currentStep === 'termMonths'
         ? 'Укажите срок от 1 до 120 месяцев.'
@@ -209,7 +169,7 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
 
   return <section className="guest-chat" aria-label="Подбор кредита в диалоге">
     <header className="guest-chat-header">
-      <a className="guest-chat-brand" href="/" aria-label="Умный кредитный кабинет — на главную">
+      <a className="guest-chat-brand" href={PAGES.HOME} aria-label="Умный кредитный кабинет — на главную">
         <span className="guest-chat-brand-mark">а.</span><span>умный кредитный<br />кабинет</span>
       </a>
       <button className="guest-chat-signin" type="button" disabled={busy} onClick={authenticated ? onBackToCabinet : onSignIn}>{authenticated ? 'Вернуться в кабинет' : <>Уже есть кабинет? <strong>Войти</strong></>}</button>
@@ -247,13 +207,13 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
                 <dl><div><dt>Сумма заявки</dt><dd>{formatRub(Number(form.requestedAmountRub))}</dd></div><div><dt>Срок</dt><dd>{form.termMonths} мес.</dd></div><div><dt>Ставка в год</dt><dd>{item.product.annualRatePercent}%</dd></div><div><dt>Платёж в месяц</dt><dd>{formatRub(item.monthlyPaymentRub)}</dd></div></dl>
                 {[...(item.reasons || []), ...(item.limitations || [])].length > 0 && <ul>{[...new Set([...(item.reasons || []), ...(item.limitations || [])])].map((reason) => <li key={reason}>{reason}</li>)}</ul>}
                 {!item.eligible && item.adjustments?.length > 0 && <div className="guest-chat-adjustments"><p>Можно проверить другие условия:</p>{item.adjustments.map((adjustment, index) => <button type="button" key={index} disabled={busy} onClick={() => applyAdjustment(adjustment)}>{formatRub(adjustment.amountRub)} · {adjustment.termMonths} мес.<small>{adjustment.explanation}</small></button>)}</div>}
-                {item.eligible && result.products.filter((product) => product.eligible).length > 1 && <button type="button" className="guest-chat-secondary" aria-pressed={selectedProductId === item.product.id} disabled={busy} onClick={() => { setSelectedProductId(item.product.id); setConfirming(false); }}>Выбрать этот продукт</button>}
+                {item.eligible && result.products.filter((product) => product.eligible).length > 1 && <button type="button" className="guest-chat-secondary" aria-pressed={selectedProductId === item.product.id} disabled={busy} onClick={() => { selectProduct(item.product.id); }}>Выбрать этот продукт</button>}
               </article>)}
               {!result.products?.some((item) => item.matches?.purpose) && <p>Выберите цель «Товары и сырьё», «Текущие расходы», «Сезонный спрос», «Оборудование» или «Модернизация», чтобы проверить доступные продукты.</p>}
               <p className="guest-chat-disclaimer">{result.disclaimer || 'Предварительный расчёт не является решением по кредиту.'}</p>
             </>}
           </>}
-          {resultError && <div role="alert" className="guest-chat-result-error"><p>{resultError}</p>{!confirming && <button type="button" className="guest-chat-secondary" onClick={() => setRetry((value) => value + 1)}>Повторить расчёт</button>}</div>}
+          {resultError && <div role="alert" className="guest-chat-result-error"><p>{resultError}</p>{!confirming && <button type="button" className="guest-chat-secondary" onClick={retryRecommendation}>Повторить расчёт</button>}</div>}
           {confirming && selectedProduct && <section className="guest-chat-confirm" aria-label="Подтверждение заявки">
             <h2>Отправить на согласование?</h2><p>{company?.name} · {selectedProduct.product.name}</p>
             <dl><div><dt>Сумма</dt><dd>{formatRub(Number(form.requestedAmountRub))}</dd></div><div><dt>Срок</dt><dd>{form.termMonths} мес.</dd></div><div><dt>Выручка / месяц</dt><dd>{formatRub(Number(form.monthlyRevenueRub))}</dd></div><div><dt>Расходы / месяц</dt><dd>{formatRub(Number(form.monthlyExpensesRub))}</dd></div></dl>
@@ -267,7 +227,7 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
           {quickReplies.length > 0 && <div className="guest-chat-choices" role="group" aria-label="Варианты ответа">{quickReplies.map((reply) => <button type="button" key={String(reply.value)} onClick={() => answer(reply.value, reply.goal)}>{reply.label}</button>)}</div>}
           <form className="guest-chat-composer-form" onSubmit={(event) => { event.preventDefault(); answer(draft); }}>
             <label htmlFor="guest-chat-input">{inputLabel}</label>
-            <div className="guest-chat-composer"><input id="guest-chat-input" type="text" inputMode={['purpose', 'purposeDescription'].includes(currentStep) ? 'text' : 'decimal'} maxLength={currentStep === 'purpose' || currentStep === 'purposeDescription' ? 300 : 24} value={draft} onChange={(event) => { setDraft(event.target.value); setError(''); }} placeholder={currentStep === 'purpose' ? 'Например, открыть цветочный магазин' : currentStep === 'purposeDescription' ? 'Например, новая точка' : currentStep === 'termMonths' ? 'Например, 24' : 'Например, 1 000 000'} aria-invalid={Boolean(error)} aria-describedby={error ? 'guest-chat-error' : undefined} /><button type="submit" aria-label="Отправить ответ" disabled={!draft.trim()}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5m0 0-6 6m6-6 6 6" /></svg></button></div>
+            <div className="guest-chat-composer"><input id="guest-chat-input" type="text" inputMode={['purpose', 'purposeDescription'].includes(currentStep) ? 'text' : 'decimal'} maxLength={currentStep === 'purpose' || currentStep === 'purposeDescription' ? 600 : 24} value={draft} onChange={(event) => { setDraft(event.target.value); setError(''); }} placeholder={currentStep === 'purpose' ? 'Например, открыть цветочный магазин' : currentStep === 'purposeDescription' ? 'Например, новая точка' : currentStep === 'termMonths' ? 'Например, 24' : 'Например, 1 000 000'} aria-invalid={Boolean(error)} aria-describedby={error ? 'guest-chat-error' : undefined} /><button type="submit" aria-label="Отправить ответ" disabled={!draft.trim()}><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 19V5m0 0-6 6m6-6 6 6" /></svg></button></div>
           </form>
           {error && <p className="guest-chat-error" id="guest-chat-error" role="alert">{error}</p>}
         </>}

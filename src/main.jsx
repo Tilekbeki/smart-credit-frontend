@@ -1,8 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { lazy, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import heroArt from '../assets/alpha-cat-hero.png';
-import CreditCabinet from './CreditCabinet';
+import { PAGES } from './config/pages';
+import { ModuleBoundary } from './components/ModuleBoundary';
 import './styles.css';
+
+const CreditCabinet = lazy(() => import('./CreditCabinet'));
 
 function LandingPage() {
   useEffect(() => {
@@ -36,7 +39,7 @@ function LandingPage() {
           <a href="#how">Как работает</a>
           <a href="#products">Продукты</a>
         </nav>
-        <a href="/cabinet" className="landing-button header-cta">
+        <a href={PAGES.CABINET} className="landing-button header-cta">
           Начать подбор <span aria-hidden="true">↗</span>
         </a>
       </header>
@@ -51,7 +54,7 @@ function LandingPage() {
               <h1 id="hero-title">Деньги нужны бизнесу.<br /><em>Ясность</em> — вам.</h1>
               <p className="hero-lede">От задачи бизнеса до отправленной заявки: подберите продукт, сохраните черновик и следите за ходом проверки в одном кабинете.</p>
               <div className="hero-actions">
-                <a href="/cabinet" className="landing-button cta-large">
+                <a href={PAGES.CABINET} className="landing-button cta-large">
                   Начать подбор <span aria-hidden="true">↗</span>
                 </a>
                 <a className="text-link light-link" href="#how">Как это работает <span aria-hidden="true">↓</span></a>
@@ -122,7 +125,7 @@ function LandingPage() {
                 <li><span>02</span><div><strong>Сравните варианты</strong><small>Посмотрите предварительный подбор двух продуктов.</small></div></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Сохраните черновик, загрузите документы и отслеживайте проверку.</small></div></li>
               </ol>
-              <a href="/cabinet" className="secondary-link">Начать подбор <span aria-hidden="true">↗</span></a>
+              <a href={PAGES.CABINET} className="secondary-link">Начать подбор <span aria-hidden="true">↗</span></a>
             </div>
             <div className="dashboard-scene" data-reveal aria-hidden="true">
               <div className="scene-halo" />
@@ -185,7 +188,7 @@ function LandingPage() {
               <span className="eyebrow eyebrow-light">Ваш следующий шаг</span>
               <h2 id="preview-title">Начните с цели.<br /><em>Продолжите в кабинете.</em></h2>
               <p>Войдите, подберите продукт, сохраните черновик и следите за заявкой. Кабинет подскажет шаги с учётом данных вашей компании.</p>
-              <a href="/cabinet" className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
+              <a href={PAGES.CABINET} className="landing-button cta-large">Перейти в кабинет <span aria-hidden="true">↗</span></a>
               <div className="preview-annotation"><span>✳</span><p>Данные компаний синтетические; реальные банковские операции не выполняются.</p></div>
             </div>
             <div className="preview-card" data-reveal aria-label="Этапы работы в кабинете">
@@ -195,7 +198,7 @@ function LandingPage() {
                 <li><span>02</span><div><strong>Подберите вариант</strong><small>Укажите задачу и параметры финансирования.</small></div><b aria-hidden="true">↗</b></li>
                 <li><span>03</span><div><strong>Следите за заявкой</strong><small>Черновик, документы и история проверки.</small></div><b aria-hidden="true">↗</b></li>
               </ol>
-              <a href="/cabinet" className="preview-card-link">Открыть кабинет <span aria-hidden="true">→</span></a>
+              <a href={PAGES.CABINET} className="preview-card-link">Открыть кабинет <span aria-hidden="true">→</span></a>
             </div>
           </div>
         </section>
@@ -214,7 +217,7 @@ function LandingPage() {
         </section>
 
         <section className="closing" aria-labelledby="closing-title">
-          <div className="container closing-inner" data-reveal><span className="eyebrow eyebrow-light">Следующий шаг — за вами</span><h2 id="closing-title">Бизнесу — движение.<br /><em>Вам — ясность.</em></h2><p>Посмотрите, как начинается понятный кредитный путь.</p><a href="/cabinet" className="landing-button cta-large">Начать подбор <span aria-hidden="true">↗</span></a><div className="closing-orb" aria-hidden="true">а.</div></div>
+          <div className="container closing-inner" data-reveal><span className="eyebrow eyebrow-light">Следующий шаг — за вами</span><h2 id="closing-title">Бизнесу — движение.<br /><em>Вам — ясность.</em></h2><p>Посмотрите, как начинается понятный кредитный путь.</p><a href={PAGES.CABINET} className="landing-button cta-large">Начать подбор <span aria-hidden="true">↗</span></a><div className="closing-orb" aria-hidden="true">а.</div></div>
         </section>
       </main>
 
@@ -232,10 +235,10 @@ function CabinetPage() {
     <div className="cabinet-page">
       <a className="skip-link" href="#main">Перейти к содержимому</a>
       <header className="cabinet-page-header">
-        <a className="brand" href="/" aria-label="Умный кредитный кабинет — на главную">
+        <a className="brand" href={PAGES.HOME} aria-label="Умный кредитный кабинет — на главную">
           <span className="brand-name">умный кредитный<br />кабинет</span>
         </a>
-        <a className="cabinet-home-link" href="/">← На главную</a>
+        <a className="cabinet-home-link" href={PAGES.HOME}>← На главную</a>
       </header>
       <main className="cabinet-page-main container" id="main">
         <div className="cabinet-page-intro">
@@ -244,12 +247,12 @@ function CabinetPage() {
           <p>Подбирайте продукт, продолжайте черновики и следите за статусом заявок в одном месте.</p>
         </div>
         <h2 className="visually-hidden">Работа с заявками</h2>
-        <CreditCabinet />
+        <ModuleBoundary><Suspense fallback={<p role="status">Открываем кабинет…</p>}><CreditCabinet /></Suspense></ModuleBoundary>
         <p className="cabinet-page-note">Данные компаний синтетические. Реальные банковские операции не выполняются.</p>
       </main>
     </div>
   );
 }
 
-const path = window.location.pathname.replace(/\/+$/, '') || '/';
-createRoot(document.getElementById('root')).render(path === '/cabinet' ? <CabinetPage /> : <LandingPage />);
+const path = window.location.pathname.replace(/\/+$/, '') || PAGES.HOME;
+createRoot(document.getElementById('root')).render(path === PAGES.CABINET ? <CabinetPage /> : <LandingPage />);

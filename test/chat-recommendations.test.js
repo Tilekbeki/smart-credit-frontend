@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chatProgress, guestRecommendation, recommendationInput, sendChatApplication } from '../src/chat-recommendations.js';
+import { chatProgress, guestRecommendation } from '../src/chat-recommendations.js';
+import { recommendationInput } from '../src/application-form.js';
+import { sendChatApplication } from '../src/services/chat-applications.js';
 
 const form = { purpose: 'stock', requestedAmountRub: '500000', termMonths: '12', monthlyRevenueRub: '1000000', monthlyExpensesRub: '0' };
 
