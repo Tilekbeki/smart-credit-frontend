@@ -16,6 +16,8 @@ import { ErrorNotice, LoadingCard, DecisionPanel, JourneyProgress, SubmitCheckli
 import { CabinetSignIn } from './components/CabinetSignIn';
 import { ModuleBoundary } from './components/ModuleBoundary';
 import { useLoginProfiles } from './hooks/useLoginProfiles';
+import { useSavedSession } from './hooks/useSavedSession';
+import { loadCabinetSession } from './services/cabinet-session';
 import './cabinet.css';
 
 const BankCabinet = lazy(() => import('./BankCabinet'));
@@ -226,64 +228,40 @@ export default function CreditCabinet() {
     requestCode(profile);
   };
 
+  const applySession = useCallback((snapshot) => {
+    api.setAccessToken(snapshot.accessToken);
+    setUser(snapshot.user);
+    setCompany(snapshot.company);
+    setBankRelationship(snapshot.company ? storedAccountPath(snapshot.company.id) : 'unknown');
+    setProducts(snapshot.products);
+    setApplications(snapshot.applications);
+    setApplicationsTotal(snapshot.total);
+    const startingForm = initialFormAfterSignIn(snapshot.products, window.location.search);
+    const guestPrefill = snapshot.user.role === 'CLIENT' ? guestPrefillRef.current : null;
+    setForm(startingForm); setNewFormBaseline(startingForm);
+    setChatForm(guestPrefill ? { ...startingForm, ...guestPrefill.form, productId: null } : initialForm());
+    setChatHistory(guestPrefill?.progress || null);
+    chatReturnScreen.current = 'list';
+    guestPrefillRef.current = null; setGuestProgress(null);
+    setSelected(null); setCreditDecision(null); setOfferChoice(null); offerActionRef.current = null;
+    setDocuments([]); setTimeline([]); setRecommendations(null); setFile(null);
+    setScreen('list'); setConflictedForm(null); setContactsDirty(false); setDeleteTarget(null);
+    setSavedNewForm(null); setDraftLimitReached(false);
+    setAuthStage('ready'); setOtpRequest(null); setCode('');
+    setError(''); setDetails([]); setNotice('');
+  }, []);
+
+  const savedSession = useSavedSession(applySession);
+
+  useEffect(() => {
+    if (savedSession.status !== 'expired') return;
+    setAuthStage('phone');
+    setError('Сессия истекла. Войдите по номеру телефона, чтобы продолжить.');
+  }, [savedSession.status]);
+
   const completeSignIn = async (session) => {
-    if (session.role === 'BANK_EMPLOYEE') {
-      api.setAccessToken(session.accessToken);
-      try {
-        const currentUser = await api.getMe();
-        if (currentUser.role !== 'BANK_EMPLOYEE') throw new api.ApiError('Не удалось подтвердить права сотрудника.');
-        setUser(currentUser);
-        setCompany(null);
-        setForm(initialForm());
-        setNewFormBaseline(initialForm());
-        guestPrefillRef.current = null;
-        setGuestProgress(null);
-        setAuthStage('ready');
-        setOtpRequest(null);
-        setCode('');
-        return;
-      } catch (failure) {
-        api.setAccessToken(null);
-        throw failure;
-      }
-    }
-    if (session.role !== 'CLIENT' || !session.companyId) {
-      throw new api.ApiError('Этот кабинет доступен предпринимателям.', { code: 'invalid_role' });
-    }
-    api.setAccessToken(session.accessToken);
-    try {
-      const [currentUser, currentCompany, productList, page] = await Promise.all([
-        api.getMe(), api.getCompany(session.companyId), api.getCreditProducts(),
-        api.listApplications({ limit: 20, offset: 0 }),
-      ]);
-      setUser(currentUser);
-      setCompany(currentCompany);
-      setBankRelationship(storedAccountPath(currentCompany.id));
-      setProducts(productList.items || []);
-      setApplications(page.items || []);
-      setApplicationsTotal(page.total || 0);
-      const startingForm = initialFormAfterSignIn(productList.items || [], window.location.search);
-      const guestPrefill = guestPrefillRef.current;
-      setForm(startingForm);
-      setChatForm(guestPrefill ? { ...startingForm, ...guestPrefill.form, productId: null } : initialForm());
-      setChatHistory(guestPrefill?.progress || null);
-      chatReturnScreen.current = (page.items || []).length ? 'list' : 'new';
-      setNewFormBaseline(startingForm);
-      guestPrefillRef.current = null;
-      setGuestProgress(null);
-      setSelected(null);
-      setDocuments([]);
-      setTimeline([]);
-      setRecommendations(null);
-      setScreen(guestPrefill ? 'chat' : selectedLandingPurpose(window.location.search) || !(page.items || []).length ? 'new' : 'list');
-      setConflictedForm(null);
-      setAuthStage('ready');
-      setOtpRequest(null);
-      setCode('');
-    } catch (failure) {
-      api.setAccessToken(null);
-      throw failure;
-    }
+    const snapshot = await loadCabinetSession(api, session.accessToken);
+    applySession(snapshot);
   };
 
   const verifyCode = async (event) => {
@@ -775,6 +753,14 @@ export default function CreditCabinet() {
         ? 'Проверьте данные, приложите документы и отправьте заявку.'
         : 'Здесь видны этап проверки и история вашей заявки.';
 
+  if (savedSession.status === 'loading') return <LoadingCard title="Восстанавливаем вход" detail="Проверяем сессию и загружаем ваш кабинет." />;
+  if (savedSession.status === 'error') return <div className="credit-cabinet credit-cabinet-auth">
+    <h3>Не удалось открыть кабинет</h3><ErrorNotice error={savedSession.error} />
+    <p className="cabinet-description">Сохранённая сессия остаётся в браузере. Повторите загрузку, когда соединение восстановится.</p>
+    <Button className="cabinet-primary-button" view="primary" onClick={savedSession.retry}>Повторить загрузку кабинета</Button>
+    <button className="cabinet-text-button" type="button" onClick={() => { savedSession.dismiss(); setAuthStage('phone'); clearMessages(); }}>Войти по другому номеру</button>
+  </div>;
+
   if (authStage === 'intro') return <GuestChat
     form={form}
     onFieldChange={updateField}
@@ -826,6 +812,7 @@ export default function CreditCabinet() {
     {screen === 'contacts' && <ContactSettings user={user} company={company} onUserChange={setUser} onCompanyChange={setCompany} onDirtyChange={setContactsDirty} onBusyChange={(value) => setBusy(value ? 'contacts' : '')} onUseFinancials={useProfileFinancials} />}
 
     {screen === 'list' && <div className="cabinet-list">
+      {chatHistory?.history?.length > 0 && <div className="cabinet-resume"><div><strong>Ответы из чата сохранены</strong><p>Продолжите подбор с того места, где остановились.</p></div><Button view="secondary" onClick={openChat} disabled={Boolean(busy)}>Продолжить подбор</Button></div>}
       <p className="cabinet-helper" role="status">{listRefreshNotice || 'Список обновляется автоматически каждые 10 секунд.'}</p>
       {savedNewForm && <div className="cabinet-resume"><div><strong>Ввод новой заявки остался на странице</strong><p>После освобождения места вернитесь к заполнению.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Вернуться к новой заявке</Button></div>}
       <div className="cabinet-section-head"><div><h4>Ваши заявки</h4><p className="cabinet-list-hint">Откройте черновик, чтобы продолжить, или проверьте статус отправленной заявки.</p></div><Button view="secondary" onClick={beginNew} disabled={Boolean(busy)}>Новая заявка +</Button></div>

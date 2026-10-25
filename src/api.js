@@ -1,3 +1,5 @@
+import { clearStoredSession, storeSession } from './services/session-storage.js';
+
 const API_ROOT = '/api/v1';
 
 let accessToken = null;
@@ -13,10 +15,13 @@ export class ApiError extends Error {
   }
 }
 
-// The Go backend has no refresh or logout operation. Keep its JWT only in memory;
-// a page reload requires a new OTP challenge rather than persisting a bearer token.
-export function setAccessToken(token) {
+// The backend has no refresh operation. Remember a verified token until it expires or the user signs out.
+export function setAccessToken(token, { persist = true } = {}) {
   accessToken = typeof token === 'string' && token.length > 0 ? token : null;
+  if (persist) {
+    if (accessToken) storeSession(accessToken);
+    else clearStoredSession();
+  }
 }
 
 export function getAccessToken() {
@@ -63,7 +68,7 @@ export async function requestApi(path, options = {}) {
     }
 
     if (response.status === 401 && auth && tokenForRequest && accessToken === tokenForRequest) {
-      accessToken = null;
+      setAccessToken(null);
       try {
         unauthorizedHandler?.();
       } catch {

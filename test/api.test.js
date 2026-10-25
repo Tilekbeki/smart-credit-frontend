@@ -239,3 +239,28 @@ test('network and malformed success responses have distinct error codes', async 
     await assert.rejects(getProfiles(), (error) => error instanceof ApiError && error.code === 'invalid_response');
   });
 });
+
+test('verified login is remembered while logout and a protected 401 clear persisted access', async () => {
+  const { SESSION_STORAGE_KEY, readStoredSession } = await import('../src/services/session-storage.js');
+  const values = new Map();
+  const storage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
+  const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage } });
+  const token = `header.${Buffer.from(JSON.stringify({ exp: Math.floor(Date.now() / 1000) + 3600 })).toString('base64url')}.signature`;
+  try {
+    setAccessToken(token);
+    assert.equal(readStoredSession().accessToken, token);
+    setAccessToken(null);
+    assert.equal(storage.getItem(SESSION_STORAGE_KEY), null);
+    await withFetch(async () => Response.json({ error: 'unauthorized' }, { status: 401 }), async () => {
+      setAccessToken(token);
+      await assert.rejects(listApplications(), { status: 401 });
+      assert.equal(getAccessToken(), null);
+      assert.equal(storage.getItem(SESSION_STORAGE_KEY), null);
+    });
+  } finally {
+    setAccessToken(null);
+    if (previousWindow) Object.defineProperty(globalThis, 'window', previousWindow);
+    else delete globalThis.window;
+  }
+});

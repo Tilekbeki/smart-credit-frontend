@@ -11,7 +11,7 @@ export class ModuleBoundary extends Component {
   render() {
     if (this.state.failed) return <section role="alert">
       <h2>Не удалось открыть раздел</h2>
-      <p>Обновите страницу, чтобы загрузить его заново. После обновления потребуется снова войти; сохранённые заявки останутся в кабинете.</p>
+      <p>Обновите страницу, чтобы загрузить его заново. Вход восстановится, если сессия ещё действует. Сохранённые заявки останутся в кабинете.</p>
       <button type="button" onClick={() => window.location.reload()}>Обновить страницу</button>
     </section>;
     return this.props.children;
