@@ -8,7 +8,7 @@ export function CabinetSignIn({ authStage, phone, code, profiles, profilesLoadin
   onPhoneChange, onCodeChange, submitPhone, verifyCode, requestCode, retryProfiles }) {
   return <div className="credit-cabinet credit-cabinet-auth">
     <div className="cabinet-eyebrow"><span>КРЕДИТНЫЙ КАБИНЕТ</span><span>ВХОД</span></div>
-    <button className="cabinet-text-button cabinet-back-to-chat" type="button" onClick={onBack} disabled={Boolean(busy)}>← Вернуться в чат</button>
+    <button className="cabinet-text-button cabinet-back-to-chat" type="button" onClick={onBack} disabled={Boolean(busy)}>Вернуться в чат</button>
     {authStage === 'phone' ? <>
       <h3>Войдите в кабинет</h3>
       <p className="cabinet-lede">Войдите по номеру телефона. Клиенту откроются его заявки, сотруднику — рабочий кабинет банка.</p>
@@ -21,7 +21,7 @@ export function CabinetSignIn({ authStage, phone, code, profiles, profilesLoadin
       {profiles.length === 0 && !profilesLoading && !busy && <Button view="secondary" onClick={retryProfiles}>Повторить загрузку</Button>}
       <ErrorNotice error={profilesError} />
       <ErrorNotice error={error} details={details} />
-      <p className="cabinet-fineprint">Вход по номеру пока доступен для указанных профилей. SMS в этом сценарии не отправляется.</p>
+      <p className="cabinet-fineprint">Вход для пользователей, зарегистрированных сотрудником банка. Используйте номер телефона, указанный при регистрации</p>
     </> : <>
       <h3>Подтвердите вход</h3>
       <p className="cabinet-lede">Введите код из SMS для <strong>{otpRequest?.maskedPhone}</strong>. {chosenProfile?.role === 'BANK_EMPLOYEE' ? 'После входа откроется рабочий кабинет сотрудника банка.' : `После входа откроется кабинет ${chosenProfile?.companyName}.`}</p>

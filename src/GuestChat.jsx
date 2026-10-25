@@ -232,7 +232,7 @@ export default function GuestChat({ form, onFieldChange, onContinue, onSignIn, i
           {error && <p className="guest-chat-error" id="guest-chat-error" role="alert">{error}</p>}
         </>}
         {complete && !typing && <div className="guest-chat-complete"><p>{authenticated ? confirming ? 'Проверьте данные выше перед отправкой.' : 'Подбор не создаёт заявку. Решение об отправке за вами.' : 'Рекомендация готова. Если у вас уже есть доступ к кабинету, войдите для расчёта по данным компании.'}</p>{authenticated ? selectedProduct && <div className="guest-chat-final-actions"><button type="button" ref={continueRef} disabled={busy} onClick={confirming ? send : () => setConfirming(true)}>{busy ? 'Сохраняем заявку…' : confirming ? 'Отправить на согласование' : 'Подготовить заявку'}</button>{confirming && <button type="button" className="guest-chat-secondary" disabled={busy} onClick={() => setConfirming(false)}>Назад к рекомендации</button>}</div> : <button type="button" ref={continueRef} onClick={onContinue}>Войти в свой кабинет</button>}</div>}
-        <div className="guest-chat-footer"><span>{complete ? 'Можно вернуться к любому ответу' : 'Предварительный разговор не является решением по кредиту'}</span>{history.length > 0 && <button type="button" disabled={busy} onClick={() => revise(history.length - 1)}>← Изменить прошлый ответ</button>}</div>
+        <div className="guest-chat-footer"><span>{complete ? 'Можно вернуться к любому ответу' : 'Предварительный разговор не является решением по кредиту'}</span>{history.length > 0 && <button type="button" disabled={busy} onClick={() => revise(history.length - 1)}>Изменить прошлый ответ</button>}</div>
       </div>
     </div>
   </section>;

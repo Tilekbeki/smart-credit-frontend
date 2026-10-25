@@ -62,10 +62,6 @@
 .cabinet-auth-divider { display: flex; align-items: center; gap: 12px; margin: 16px 0 0; color: #718087; font-size: 12px; font-weight: 700; }
 .cabinet-auth-divider::before,
 .cabinet-auth-divider::after { height: 1px; flex: 1; content: ''; background: #e0e7e9; }
-.cabinet-row-icon {
-  display: grid; place-items: center; width: 47px; height: 47px;
-  border-radius: 13px; color: #14606c; background: #e4f6f8; font-size: 22px;
-}
 .cabinet-code-form { display: grid; gap: 16px; }
 .cabinet-code-form > button { min-height: 50px; }
 .cabinet-code-actions { display: flex; flex-wrap: wrap; gap: 12px 22px; margin-top: 18px; }
@@ -147,7 +143,7 @@
 .cabinet-section-head > div > h4 { margin-top: 4px; }
 .cabinet-section-head button { flex: none; }
 .cabinet-application-row {
-  display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center;
   gap: 12px; width: 100%; min-height: 78px; margin-bottom: 9px; padding: 13px;
   border: 1px solid #e3e8ea; border-radius: 15px; color: #202b31; background: #fff; text-align: left;
 }
@@ -214,8 +210,7 @@
 .cabinet-upload input[type=file] { width: 100%; padding: 12px; border: 1px dashed #b3c3c7; border-radius: 10px; font-size: 12px; }
 .cabinet-upload > button { justify-self: start; }
 .cabinet-document-list { margin: 19px 0 0; padding: 0; list-style: none; }
-.cabinet-document-list li { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid #edf0f1; }
-.cabinet-document-icon { display: grid; place-items: center; width: 35px; height: 35px; border-radius: 9px; color: #27717b; background: #e7f6f7; font-size: 20px; }
+.cabinet-document-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid #edf0f1; }
 .cabinet-document-list strong, .cabinet-document-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cabinet-document-list strong { font-size: 12px; }
 .cabinet-document-list small { margin-top: 3px; color: #738087; font-size: 10px; }
@@ -434,7 +429,6 @@
 .credit-cabinet-dashboard .cabinet-account-path.is-external_account,
 .credit-cabinet-dashboard .cabinet-sidebar .cabinet-account-details .cabinet-account-path.is-external_account { border-color: #ebe2d8; background: #fdfaf6; }
 .credit-cabinet-dashboard .cabinet-account-path.is-external_account strong { color: #80552c; }
-.credit-cabinet-dashboard .cabinet-row-icon { color: #565174; background: #eeeaf8; }
 .credit-cabinet-dashboard .cabinet-application-row { border-color: var(--cabinet-line); color: var(--cabinet-ink); }
 .credit-cabinet-dashboard .cabinet-application-row:hover { border-color: #bfc0ca; background: #fafafd; }
 .credit-cabinet-dashboard .cabinet-resume { border-color: #d7e4f8; background: #eaf2ff; }
@@ -466,7 +460,6 @@
 .credit-cabinet-dashboard .cabinet-document-plan { border-left-color: #7796d9; background: #eef3ff; }
 .credit-cabinet-dashboard .cabinet-document-plan strong { color: #405c91; }
 .credit-cabinet-dashboard .cabinet-document-plan p { color: #566783; }
-.credit-cabinet-dashboard .cabinet-document-icon { color: #555171; background: #eeeaf8; }
 .credit-cabinet-dashboard .cabinet-submit { background: #f1f1f5; }
 .credit-cabinet-dashboard .cabinet-summary { border-color: var(--cabinet-line); }
 .credit-cabinet-dashboard .cabinet-product,
@@ -547,8 +540,8 @@
   .cabinet-demo-row { flex-direction: column; align-items: stretch; }
   .cabinet-demo-row button { width: 100%; }
   .cabinet-goals > div, .cabinet-input-grid, .cabinet-product-metrics, .cabinet-summary { grid-template-columns: 1fr; }
-  .cabinet-application-row { grid-template-columns: 38px minmax(0, 1fr); }
-  .cabinet-application-row > span:last-child { grid-column: 2; text-align: left; }
+  .cabinet-application-row { grid-template-columns: minmax(0, 1fr); }
+  .cabinet-application-row > span:last-child { grid-column: 1; text-align: left; }
   .cabinet-submit { flex-direction: column; align-items: stretch; }
   .cabinet-submit > button { width: 100%; }
 }
