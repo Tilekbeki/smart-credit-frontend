@@ -2,9 +2,9 @@ import './styles.css';
 import React, { useEffect, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
-import * as api from '../../api';
-import { userContactPatch, companyContactPatch } from '../../contacts';
-import { formatRub } from '../../utils/format';
+import * as api from '../../shared/api/client.js';
+import { userContactPatch, companyContactPatch } from '../../modules/contacts/model/contacts.js';
+import { formatRub } from '../../shared/lib/format.js';
 
 const contactValues = (company) => ({ phone: company.contact.phone, email: company.contact.email, address: company.contact.address });
 

@@ -1,7 +1,7 @@
 import './styles.css';
 import React, { lazy, Suspense, useEffect } from 'react';
-import { PAGES } from '../../config/pages.js';
-import { ModuleBoundary } from '../../components/ModuleBoundary.jsx';
+import { PAGES } from '../../shared/config/pages.js';
+import { ModuleBoundary } from '../../shared/ui/ModuleBoundary/index.jsx';
 
 const CreditCabinet = lazy(() => import('../CreditCabinet/index.jsx'));
 

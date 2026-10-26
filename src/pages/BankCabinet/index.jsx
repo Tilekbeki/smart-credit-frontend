@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
-import * as api from '../../api';
-import { BANK_STATUSES, canReview, prepareBankDecision } from '../../bank-review';
-import { fetchVisibleApplications } from '../../list-window';
-import { formatRub as rub, formatDate as date, shortId as idLabel } from '../../utils/format';
-import { GOAL_NAMES as goal, DOCUMENT_NAMES as documentNames } from '../../config/credit';
-import { ErrorNotice } from '../../components/CabinetPanels';
+import * as api from '../../shared/api/client.js';
+import { BANK_STATUSES, canReview, prepareBankDecision } from '../../modules/bank/model/review.js';
+import { fetchVisibleApplications } from '../../shared/lib/pagination.js';
+import { formatRub as rub, formatDate as date, shortId as idLabel } from '../../shared/lib/format.js';
+import { GOAL_NAMES as goal, DOCUMENT_NAMES as documentNames } from '../../modules/credit/config.js';
+import { ErrorNotice } from '../../shared/ui/Feedback/index.jsx';
 import './styles.css';
 
 const riskNames = { LOW: 'Низкий', MEDIUM: 'Средний', HIGH: 'Высокий' };

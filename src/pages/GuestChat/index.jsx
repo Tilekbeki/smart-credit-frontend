@@ -1,11 +1,11 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import catArt from '../../../assets/alpha-cat-hero.png';
 import './styles.css';
-import { chatProgress, guestRecommendation, parseChatNumber } from '../../chat-recommendations';
-import { GOALS } from '../../config/credit';
-import { PAGES } from '../../config/pages';
-import { formatRub } from '../../utils/format';
-import { useChatRecommendations } from '../../hooks/useChatRecommendations';
+import { chatProgress, guestRecommendation, parseChatNumber } from '../../modules/chat/model/recommendations.js';
+import { GOALS } from '../../modules/credit/config.js';
+import { PAGES } from '../../shared/config/pages.js';
+import { formatRub } from '../../shared/lib/format.js';
+import { useChatRecommendations } from '../../modules/chat/hooks/useChatRecommendations.js';
 
 const QUESTIONS = {
   purpose: 'На что нужны деньги вашему бизнесу?',

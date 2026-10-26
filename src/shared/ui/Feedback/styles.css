@@ -1,0 +1,19 @@
+
+.cabinet-error { margin: 16px 0; padding: 14px 16px; border: 1px solid #f2b6af; border-radius: 12px; color: #9f251d; background: #fff1ee; font-size: 13px; line-height: 1.45; }
+.cabinet-error strong { font-weight: 700; }
+.cabinet-error ul { margin: 8px 0 0; padding-left: 19px; }
+.cabinet-error li + li { margin-top: 4px; }
+.cabinet-notice { margin: 15px 0; padding: 12px 15px; border: 1px solid #a8d8c9; border-radius: 12px; color: #21614e; background: #ecfaf4; font-size: 13px; line-height: 1.45; }
+.cabinet-loading { display: grid; justify-items: center; gap: 9px; padding: 42px 18px; text-align: center; }
+.cabinet-loading strong { font-size: 18px; }
+.cabinet-loading p { margin: 0; color: #68767c; font-size: 13px; }
+.cabinet-spinner { display: inline-block; width: 25px; height: 25px; flex: none; border: 3px solid #dcebed; border-top-color: #c72a20; border-radius: 50%; animation: cabinet-spin .8s linear infinite; }
+.cabinet-processing-note .cabinet-spinner { width: 22px; height: 22px; border-top-color: #c48519; }
+.cabinet-panel-content > .cabinet-error:first-child, .cabinet-panel-content > .cabinet-notice:first-child { margin-top: 0; }
+.cabinet-opening-overlay .cabinet-loading { width: min(100%, 400px); padding: 35px 24px; border: 1px solid #dce8ea; border-radius: 16px; background: #fff; box-shadow: 0 16px 45px rgba(30, 53, 63, .1); }
+
+@keyframes cabinet-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .cabinet-spinner { animation: none; }
+}
