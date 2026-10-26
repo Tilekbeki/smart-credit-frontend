@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
-import * as api from './api';
-import { BANK_STATUSES, canReview, prepareBankDecision } from './bank-review';
-import { fetchVisibleApplications } from './list-window';
-import { formatRub as rub, formatDate as date, shortId as idLabel } from './utils/format';
-import { GOAL_NAMES as goal, DOCUMENT_NAMES as documentNames } from './config/credit';
-import { ErrorNotice } from './components/CabinetPanels';
-import './bank-cabinet.css';
+import * as api from '../../api';
+import { BANK_STATUSES, canReview, prepareBankDecision } from '../../bank-review';
+import { fetchVisibleApplications } from '../../list-window';
+import { formatRub as rub, formatDate as date, shortId as idLabel } from '../../utils/format';
+import { GOAL_NAMES as goal, DOCUMENT_NAMES as documentNames } from '../../config/credit';
+import { ErrorNotice } from '../../components/CabinetPanels';
+import './styles.css';
 
 const riskNames = { LOW: 'Низкий', MEDIUM: 'Средний', HIGH: 'Высокий' };
 const percent = (value) => value == null ? 'Нет данных' : `${new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 2 }).format(value * 100)}%`;

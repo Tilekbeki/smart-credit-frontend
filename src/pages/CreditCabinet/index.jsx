@@ -1,26 +1,26 @@
 import React, { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@alfalab/core-components/button';
 import { Input } from '@alfalab/core-components/input';
-import * as api from './api';
-import { getJourneyStage, getNextAction, getSubmitChecklist } from './journey';
-import GuestChat from './GuestChat';
-import ContactSettings from './ContactSettings';
-import { fetchVisibleApplications } from './list-window';
-import { sendChatApplication } from './services/chat-applications';
-import { initialForm, formFromApplication, payloadFromForm, numericFields, selectedLandingPurpose, initialFormAfterSignIn, validateForm, recommendationInput, canSubmitDraft } from './application-form';
-import { normalizePhone } from './utils/phone';
-import { GOALS } from './config/credit';
-import { formatRub, formatDate, shortId } from './utils/format';
-import { accountPath, storedAccountPath, saveAccountPath } from './services/account-preference';
-import { ErrorNotice, LoadingCard, DecisionPanel, JourneyProgress, SubmitChecklist, DocumentList } from './components/CabinetPanels';
-import { CabinetSignIn } from './components/CabinetSignIn';
-import { ModuleBoundary } from './components/ModuleBoundary';
-import { useLoginProfiles } from './hooks/useLoginProfiles';
-import { useSavedSession } from './hooks/useSavedSession';
-import { loadCabinetSession } from './services/cabinet-session';
-import './cabinet.css';
+import * as api from '../../api';
+import { getJourneyStage, getNextAction, getSubmitChecklist } from '../../journey';
+import GuestChat from '../GuestChat/index.jsx';
+import ContactSettings from '../ContactSettings/index.jsx';
+import { fetchVisibleApplications } from '../../list-window';
+import { sendChatApplication } from '../../services/chat-applications';
+import { initialForm, formFromApplication, payloadFromForm, numericFields, selectedLandingPurpose, initialFormAfterSignIn, validateForm, recommendationInput, canSubmitDraft } from '../../application-form';
+import { normalizePhone } from '../../utils/phone';
+import { GOALS } from '../../config/credit';
+import { formatRub, formatDate, shortId } from '../../utils/format';
+import { accountPath, storedAccountPath, saveAccountPath } from '../../services/account-preference';
+import { ErrorNotice, LoadingCard, DecisionPanel, JourneyProgress, SubmitChecklist, DocumentList } from '../../components/CabinetPanels';
+import { CabinetSignIn } from '../../components/CabinetSignIn';
+import { ModuleBoundary } from '../../components/ModuleBoundary';
+import { useLoginProfiles } from '../../hooks/useLoginProfiles';
+import { useSavedSession } from '../../hooks/useSavedSession';
+import { loadCabinetSession } from '../../services/cabinet-session';
+import './styles.css';
 
-const BankCabinet = lazy(() => import('./BankCabinet'));
+const BankCabinet = lazy(() => import('../BankCabinet/index.jsx'));
 
 const STATUS_NAMES = {
   draft: 'Черновик',

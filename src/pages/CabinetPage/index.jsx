@@ -1,8 +1,9 @@
+import './styles.css';
 import React, { lazy, Suspense, useEffect } from 'react';
-import { PAGES } from '../config/pages.js';
-import { ModuleBoundary } from '../components/ModuleBoundary.jsx';
+import { PAGES } from '../../config/pages.js';
+import { ModuleBoundary } from '../../components/ModuleBoundary.jsx';
 
-const CreditCabinet = lazy(() => import('../CreditCabinet.jsx'));
+const CreditCabinet = lazy(() => import('../CreditCabinet/index.jsx'));
 
 export default function CabinetPage() {
   useEffect(() => {

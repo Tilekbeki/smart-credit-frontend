@@ -1,0 +1,6 @@
+
+.cabinet-contact-section { padding: 26px 0; border-top: 1px solid var(--cabinet-line); }
+.cabinet-contact-section:first-child { padding-top: 0; border-top: 0; }
+.cabinet-contact-section form { display: grid; gap: 16px; margin-top: 20px; max-width: 620px; }
+.cabinet-contact-section form > button { justify-self: start; }
+.cabinet-contact-section > button { margin-top: 24px; }

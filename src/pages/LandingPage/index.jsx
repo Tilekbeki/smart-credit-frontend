@@ -1,6 +1,7 @@
+import './styles.css';
 import React, { useEffect } from 'react';
-import heroArt from '../../assets/alpha-cat-hero.png';
-import { PAGES } from '../config/pages.js';
+import heroArt from '../../../assets/alpha-cat-hero.png';
+import { PAGES } from '../../config/pages.js';
 
 export default function LandingPage() {
   useEffect(() => {
