@@ -134,3 +134,22 @@ test('live processing stage from the decision endpoint guides the timeline', () 
   assert.equal(getJourneyStage({ status: 'processing' }, [], { processing: { stage: 'scoring' } }).id, 'scoring');
   assert.equal(getJourneyStage({ status: 'processing' }, [], { processing: { stage: 'decision' } }).id, 'awaiting_decision');
 });
+
+test('exhausted processing attempts remain a technical stop at the actual phase, never a credit refusal', () => {
+  for (const phase of ['prechecks', 'scoring', 'decision']) {
+    const application = { status: 'processing' };
+    const failed = { processing: { stage: phase, state: 'failed' } };
+    const timeline = [{ eventType: 'SCORING_STARTED' }];
+    const stage = getJourneyStage(application, timeline, failed);
+    assert.equal(stage.id, 'processing_failed');
+    assert.equal(stage.title, 'Проверка временно остановилась');
+    assert.match(stage.description, /не отказ/);
+    assert.equal(stage.steps.find((step) => step.state === 'current').id, phase);
+    const next = getNextAction(application, timeline, [], [], null, 'unknown', failed);
+    assert.equal(next.kind, 'wait');
+    assert.equal(next.label, 'Ожидается техническая проверка');
+    assert.match(next.description, /Повторно заполнять заявку не нужно/);
+    // A subsequently published result takes precedence over stale processing metadata.
+    assert.equal(getJourneyStage({ status: 'approved' }, timeline, failed).id, 'approved');
+  }
+});

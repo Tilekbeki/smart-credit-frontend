@@ -7,7 +7,7 @@ import GuestChat from './GuestChat';
 import ContactSettings from './ContactSettings';
 import { fetchVisibleApplications } from './list-window';
 import { sendChatApplication } from './services/chat-applications';
-import { initialForm, formFromApplication, payloadFromForm, numericFields, selectedLandingPurpose, initialFormAfterSignIn, validateForm, recommendationInput } from './application-form';
+import { initialForm, formFromApplication, payloadFromForm, numericFields, selectedLandingPurpose, initialFormAfterSignIn, validateForm, recommendationInput, canSubmitDraft } from './application-form';
 import { normalizePhone } from './utils/phone';
 import { GOALS } from './config/credit';
 import { formatRub, formatDate, shortId } from './utils/format';
@@ -451,6 +451,7 @@ export default function CreditCabinet() {
   };
 
   const saveDraft = async () => {
+    if (conflictedForm) return;
     clearMessages();
     const validation = validateForm(form);
     if (validation) { setError(validation); return; }
@@ -538,6 +539,7 @@ export default function CreditCabinet() {
   };
 
   const submit = async () => {
+    if (!canSubmit) return;
     clearMessages();
     setBusy('submitting');
     try {
@@ -727,7 +729,7 @@ export default function CreditCabinet() {
   const checklist = getSubmitChecklist(selected?.status === 'draft' ? selected : null, documents, details, selectedProduct, bankRelationship);
   const journeyStage = selected ? getJourneyStage(selected, timeline, creditDecision) : null;
   const nextAction = selected ? getNextAction(selected, timeline, documents, details, selectedProduct, bankRelationship, creditDecision) : null;
-  const canSubmit = selected?.status === 'draft' && !hasUnsavedChanges && checklist.readyToSubmit;
+  const canSubmit = canSubmitDraft(selected, { hasUnsavedChanges, hasConflict: Boolean(conflictedForm), readyToSubmit: checklist.readyToSubmit });
   const draftToContinue = applications.filter((item) => item.status === 'draft')
     .sort((a, b) => Date.parse(b.updatedAt || b.createdAt) - Date.parse(a.updatedAt || a.createdAt))[0];
   const showApplicationDetails = screen === 'new' || screen === 'application';
@@ -868,7 +870,7 @@ export default function CreditCabinet() {
       {showApplicationDetails && !recommendations && products.length > 0 && <div className="cabinet-product-picker"><label htmlFor="cabinet-product-select">Продукт для черновика</label><select id="cabinet-product-select" value={form.productId || ''} disabled={Boolean(busy)} onChange={(event) => updateField('productId', event.target.value || null)}><option value="">Пока не выбран</option>{products.filter((product) => product.purposes.includes(form.purpose)).map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}</select>{fieldError('productId') && <small className="cabinet-inline-error" role="alert">{fieldError('productId')}</small>}<small>Условия продукта и требования к документам проверяются при отправке.</small></div>}
       {showApplicationDetails && formProduct && <div className="cabinet-product-terms"><strong>Условия выбранного продукта</strong><span>Сумма: {formatRub(formProduct.minAmountRub)}–{formatRub(formProduct.maxAmountRub)}</span><span>Срок: {formProduct.minTermMonths}–{formProduct.maxTermMonths} мес.</span><span>Стаж бизнеса: от {formProduct.minBusinessAgeMonths} мес.</span></div>}
       {showApplicationDetails && <div className="cabinet-document-plan"><strong>Что подготовить для отправки</strong><p>{form.productId === 'investment' ? 'Для кредита на оборудование понадобится счёт на оборудование. Загрузить его можно после сохранения черновика.' : form.productId === 'turnover' ? bankRelationship === 'external_account' ? 'Подготовьте выписку из другого банка. Её можно загрузить после сохранения черновика; необходимость документа проверится при отправке.' : 'Выписка по счёту может понадобиться, если банку не хватит данных об оборотах. Если она нужна, сервис уточнит это при отправке.' : 'Выберите продукт: после этого покажем известные требования к документам.'}</p></div>}
-      {showApplicationDetails && <div className="cabinet-primary-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>}</div>}
+      {showApplicationDetails && <div className="cabinet-primary-actions"><Button className="cabinet-primary-button" view="primary" type="button" onClick={saveDraft} disabled={Boolean(busy) || Boolean(conflictedForm)}>{busy === 'saving' ? 'Сохраняем…' : selected ? 'Сохранить изменения' : 'Сохранить черновик'}</Button>{selected && (conflictedForm ? <span>Сначала выберите, какую версию черновика оставить.</span> : hasUnsavedChanges && <span>Сохраните изменения перед отправкой.</span>)}</div>}
 
       {selected && <SubmitChecklist checklist={checklist} />}
       {selected && nextAction && <div className="cabinet-next-action" aria-live="polite"><div><span>СЛЕДУЮЩЕЕ ДЕЙСТВИЕ</span><strong>{nextAction.label}</strong><p>{nextAction.description}</p></div>{['complete_draft', 'upload_document', 'review_and_submit'].includes(nextAction.kind) && <Button view="secondary" onClick={scrollToNextAction}>Перейти</Button>}</div>}
@@ -879,7 +881,7 @@ export default function CreditCabinet() {
         <DocumentList documents={documents} download={download} busy={busy} bankRelationship={bankRelationship} />
       </div>}
 
-      {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button className="cabinet-primary-button" view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку'}</Button></div>}
+      {selected && <div className="cabinet-submit" ref={submitRef}><div><strong>Готовы отправить?</strong><p>После отправки банк увидит эту заявку и начнёт проверки. Остальные черновики сохранятся отдельно.</p>{!canSubmit && <p>{conflictedForm ? 'Сначала разрешите конфликт версий выше.' : hasUnsavedChanges ? 'Сначала сохраните изменения.' : 'Исправьте пункты в списке готовности выше.'}</p>}</div><Button className="cabinet-primary-button" view="primary" type="button" onClick={submit} disabled={!canSubmit || Boolean(busy)}>{busy === 'submitting' ? 'Отправляем…' : 'Отправить заявку'}</Button></div>}
     </div>}
 
     {screen === 'application' && selected && selected.status !== 'draft' && <div className="cabinet-status-view">

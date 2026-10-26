@@ -17,6 +17,7 @@ const STAGES = {
   prechecks: ['Идут предварительные проверки', 'Проверяются сведения о компании и кредитная история.', 2],
   awaiting_scoring: ['Ожидается оценка', 'Предварительные проверки завершены. Результат оценки ещё не сохранён.', 3],
   scoring: ['Идёт оценка', 'Оценка началась. Её результат ещё не сохранён; повторные попытки не означают отказ.', 3],
+  processing_failed: ['Проверка временно остановилась', 'Обработка остановлена из-за технической ошибки. Требуется проверка на стороне банка; это не отказ по кредиту.', -1],
   awaiting_decision: ['Ожидается решение', 'Результат оценки сохранён. Кредитное решение ещё не опубликовано.', 4],
   manual_review: ['Рассматривает сотрудник банка', 'Заявка передана на ручное рассмотрение. Решение ещё не опубликовано.', 4],
   approved: ['Одобрена', 'Решение готово. Проверьте предложение банка и выберите дальнейшее действие.', 4],
@@ -104,7 +105,8 @@ export function getJourneyStage(application, timeline = [], creditDecision = nul
   } else if (status === 'draft') {
     id = 'draft';
   } else if (status === 'submitted' || status === 'processing') {
-    if (processingStage === 'decision' || events.has('SCORING_COMPLETED')) id = 'awaiting_decision';
+    if (creditDecision?.processing?.state === 'failed') id = 'processing_failed';
+    else if (processingStage === 'decision' || events.has('SCORING_COMPLETED')) id = 'awaiting_decision';
     else if (processingStage === 'scoring') id = 'scoring';
     else if (events.has('SCORING_STARTED')) id = 'scoring';
     else if (events.has('PRECHECKS_COMPLETED')) id = 'awaiting_scoring';
@@ -114,7 +116,9 @@ export function getJourneyStage(application, timeline = [], creditDecision = nul
     id = 'unknown';
   }
 
-  const [title, description, phaseIndex] = STAGES[id];
+  const [title, description, stagePhaseIndex] = STAGES[id];
+  const phaseIndex = id === 'processing_failed'
+    ? ({ prechecks: 2, scoring: 3, decision: 4 }[processingStage] ?? -1) : stagePhaseIndex;
   const final = ['approved', 'counter_offer', 'rejected', 'signed', 'closed'].includes(id);
   return {
     id,
@@ -153,6 +157,7 @@ export function getNextAction(application, timeline = [], documents = [], valida
 
   const stage = getJourneyStage(application, timeline, creditDecision);
   const waiting = {
+    processing_failed: 'Повторно заполнять заявку не нужно. Техническую причину должен устранить банк.',
     submitted: 'Ожидайте начала предварительных проверок.',
     prechecks: 'Предварительные проверки идут автоматически.',
     awaiting_scoring: 'Ожидайте начала оценки заявки.',
@@ -160,7 +165,7 @@ export function getNextAction(application, timeline = [], documents = [], valida
     awaiting_decision: 'Ожидайте публикации кредитного решения.',
     manual_review: 'Ожидайте решения сотрудника банка.',
   };
-  if (waiting[stage.id]) return { kind: 'wait', label: 'Следите за статусом', description: waiting[stage.id] };
+  if (waiting[stage.id]) return { kind: 'wait', label: stage.id === 'processing_failed' ? 'Ожидается техническая проверка' : 'Следите за статусом', description: waiting[stage.id] };
   if (stage.id === 'approved' || stage.id === 'counter_offer') {
     return {
       kind: creditDecision?.offer?.status === 'active' ? 'review_offer' : 'refresh',

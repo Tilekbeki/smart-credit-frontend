@@ -8,6 +8,11 @@ const numericLimits = {
 };
 export const numericFields = Object.keys(numericLimits);
 
+// A server reload can leave the visible form clean while a local conflict copy is pending.
+export function canSubmitDraft(application, { hasUnsavedChanges, hasConflict, readyToSubmit }) {
+  return application?.status === 'draft' && !hasUnsavedChanges && !hasConflict && readyToSubmit;
+}
+
 export function isValidNumericValue(field, value) {
   const limits = numericLimits[field];
   return Boolean(limits) && Number.isSafeInteger(value) && value >= limits[0] && value <= limits[1];

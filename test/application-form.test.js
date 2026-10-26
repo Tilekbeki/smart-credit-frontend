@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { initialForm, formFromApplication, payloadFromForm, validateForm, recommendationInput, initialFormAfterSignIn, selectedLandingPurpose } from '../src/application-form.js';
+import { initialForm, formFromApplication, payloadFromForm, validateForm, recommendationInput, initialFormAfterSignIn, selectedLandingPurpose, canSubmitDraft } from '../src/application-form.js';
 import { parseChatNumber, chatProgress } from '../src/chat-recommendations.js';
 
 const complete = { ...initialForm(), requestedAmountRub: '500000', termMonths: '12', monthlyRevenueRub: '2000000', monthlyExpensesRub: '0' };
+
+test('a reloaded conflict cannot be submitted until the user resolves the pending local copy', () => {
+  const serverDraft = { status: 'draft', requestedAmountRub: 650000, version: 2 };
+  const ready = { hasUnsavedChanges: false, readyToSubmit: true };
+  assert.equal(canSubmitDraft(serverDraft, { ...ready, hasConflict: true }), false);
+  assert.equal(canSubmitDraft(serverDraft, { ...ready, hasConflict: false }), true);
+  assert.equal(canSubmitDraft(serverDraft, { ...ready, hasUnsavedChanges: true }), false);
+  assert.equal(canSubmitDraft(serverDraft, { ...ready, readyToSubmit: false }), false);
+  assert.equal(canSubmitDraft({ ...serverDraft, status: 'approved' }, ready), false);
+});
 
 test('draft conversion preserves absent fields as null and explicit zero finances as zero', () => {
   const form = { ...initialForm(), requestedAmountRub: '   ', termMonths: '', monthlyRevenueRub: '0', monthlyExpensesRub: ' 0 ', purposeDescription: '  ' };
